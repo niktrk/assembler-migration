@@ -1,0 +1,25 @@
+Program = [Title] Model [Stack] [Data] Code.
+
+Title = "title" ident.
+
+Model = ".model" ("small" | "flat" | ...).
+
+Stack = ".stack" number.
+
+Data = ".data" {Variable}.
+Variable = ident Size Value {"," Value}.
+Size = "db" | "dw" | ...
+Value = number | String.
+String = "'" {char} "'". 
+
+Code = ".code" {Procedure | Macro} Label {Label | Statement} "end" ident.
+Label = ident ":".
+Procedure = ident "proc" ["far"] {Label | Statement} "ret" ident "endp".
+Macro = ident "macro" {ident} {Label | Statement} "endm".
+Statement = OneArgStat | TwoArgStat.
+OneArgStat = OneArgComm Argument
+TwoArgStat = TwoArgStat Argument "," Argument
+OneArgComm = "int" | "jmp" | "loop" |"push" | "pop" | "inc" ...
+TwoArgComm = "mov" | "add" | "cmp" | "xor" ...
+Argument = ident | number | Register | "[" Register "]" | "@data" ...
+Register = "ax" | "bx" | ...
