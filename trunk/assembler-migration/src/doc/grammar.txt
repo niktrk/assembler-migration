@@ -23,3 +23,16 @@ OneArgComm = "int" | "jmp" | "loop" |"push" | "pop" | "inc" ...
 TwoArgComm = "mov" | "add" | "cmp" | "xor" ...
 Argument = ident | number | Register | "[" Register "]" | "@data" ...
 Register = "ax" | "bx" | ...
+
+
+
+	Overflow - postavlja se kada se javi prekoračenje kod aritmetičke operacije, tj. kada veličina rezultata premaši veličinu odredišta
+	
+	Sign - postavlja se kada je najviši bit rezultata 1. Odosno, S=0 za pozitivan rezultat i S=1 za negativan.
+	
+	Zero - postavlja se kada je rezultat jednak nuli.
+	
+	Parity Flag - postavlja se kada u rezultatu postoji paran broj bitova koji su 1, a inače se briše. Često se koristi u komunikacijama.
+	
+	Carry Flag - postavlja se ako postoji prenos iz najvišeg bita rezultata, ili “pozajmica” u njega. Koristi se prilikom računanja sa vrednostima koje se prostiru na više reči.
+

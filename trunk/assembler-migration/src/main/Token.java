@@ -16,5 +16,11 @@ public class Token {
 		this.hex = hex;
 		this.str = str;
 	}
+	
+	public void write(){
+		System.out.println(code);
+		System.out.println(val);
+		System.out.println(str);
+	}
 
 }

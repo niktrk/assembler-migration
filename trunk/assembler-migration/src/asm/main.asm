@@ -1,5 +1,5 @@
 title Pera ;blah blah b34 23d
-.model small 200h
+.model small
 .stack 100h
 .data
 message db 'Ja volim vatat muve$'
