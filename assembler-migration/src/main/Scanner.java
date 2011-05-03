@@ -3,109 +3,11 @@ package main;
 import java.io.BufferedReader;
 import java.io.FileReader;
 
-public class Scanner {
+public class Scanner extends AbstractCompiler{
 
 	public BufferedReader sc;
 	private char chr;
 	private boolean eof = false;
-
-	public static final int
-			// terminals
-			none = 0,
-			ident = 1,
-			number = 2,
-			comma = 3,
-			colon = 4,
-			lbrack = 5,
-			rbrack = 6,
-			apostr = 7,
-
-			// segments
-			title = 8,
-			model = 9,
-			stack = 10,
-			data = 11,
-			code = 12,
-			end = 13,
-
-			// models
-			small = 14,
-			compact = 15,
-			medium = 16,
-			large = 17,
-
-			// size
-			db = 18,
-			dw = 19,
-
-			// procedures
-			proc = 20,
-			far = 21,
-			ret = 22,
-			endp = 23,
-
-			// macros
-			macro = 24,
-			endm = 25,
-
-			// OneArgStat
-			interr = 26, 
-			loop = 27,
-			push = 28,
-			pop = 29,
-			inc = 30,
-			dec = 31,
-			call = 32,
-			not = 33,
-				// jumps
-			jmp = 34, 
-			ja = 35, 
-			jae = 36,
-			jb = 37, 
-			jbe = 38, 
-			jg = 39,
-			jge = 40,
-			jl = 41,
-			jle = 42,
-			je = 43,
-
-			// TwoArgStat
-			mov = 44, 
-			xchg = 45, 
-			cmp = 46,
-			add = 47, 
-			sub = 48,
-			mul = 49,
-			div = 50, 
-			and = 51, 
-			or = 52,
-			xor = 53,
-
-			// Registers
-			ax = 54,
-			ah = 55, 
-			al = 56, 
-			bx = 57, 
-			bh = 58, 
-			bl = 59,
-			cx = 60,
-			ch = 61,
-			cl = 62, 
-			dx = 63, 
-			dh = 64, 
-			dl = 65, 
-			si = 66,
-			di = 67,
-			bp = 68, 
-			sp = 69, 
-			cs = 70, 
-			ds = 71, 
-			ss = 72, 
-			es = 73,
-
-			// other
-			atdata = 74, // @data
-			offset = 75;
 
 	public Scanner(String file) {
 			try {
@@ -126,10 +28,21 @@ public class Scanner {
 		else
 			chr = (char) i;
 	}
+	
+	private Token readString() throws Exception{
+		String str = "";
+		read();
+		while(chr != '\''){
+			str += chr;
+			read();
+		}
+		read();
+		return new Token(string, 0, false, str);
+	}
 
 	private String readName() throws Exception {
 		String ret = "";
-		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' ||chr >= '0' && chr <= '9'|| chr =='$')&& !eof) {
+		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' ||chr >= '0' && chr <= '9')&& !eof) {
 			ret += chr;
 			read();
 		}
@@ -187,8 +100,7 @@ public class Scanner {
 				ret.code = rbrack;
 				read();
 			} else if (chr == '\'') {
-				ret.code = apostr;
-				read();
+				return readString();
 			} else if (chr == '.') {
 				read();
 				str = readName();
@@ -209,7 +121,7 @@ public class Scanner {
 					ret.code = atdata;
 			}
 
-			else if (chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr == '$') {
+			else if (chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z') {
 				str = readName();
 				if (str.equals("title")) {
 					ret.code = title;
@@ -233,6 +145,8 @@ public class Scanner {
 					ret.code = proc;
 				} else if (str.equals("far")) {
 					ret.code = far;
+				} else if (str.equals("ret")) {
+					ret.code = Scanner.ret;
 				} else if (str.equals("endp")) {
 					ret.code = endp;
 				} else if (str.equals("macro")) {
