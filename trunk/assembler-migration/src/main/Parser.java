@@ -8,14 +8,14 @@ import java.util.BitSet;
  */
 public class Parser extends AbstractCompiler {
 
-	private Scanner s;
-	private Token curr;
+	private Scanner sc;
+	private Token curr, la;
 	private String buffer;
 
 	private BitSet oneArgComm, twoArgComm, registers;
 
-	public Parser(Scanner s) throws Exception {
-		this.s = s;
+	public Parser(Scanner sc) throws Exception {
+		this.sc = sc;
 		oneArgComm = new BitSet();
 		oneArgComm.set(interr);
 		oneArgComm.set(loop);
@@ -72,7 +72,8 @@ public class Parser extends AbstractCompiler {
 
 		buffer = new String();
 
-		curr = s.next();
+		curr = sc.next();
+		la = sc.next();
 	}
 
 	private void check(int... code) throws Exception {
@@ -82,7 +83,8 @@ public class Parser extends AbstractCompiler {
 				in = true;
 		}
 		if (in) {
-			curr = s.next();
+			curr = la;
+			la = sc.next();
 		} else {
 			System.out.println("Kurac!");
 			System.exit(0);
@@ -90,24 +92,34 @@ public class Parser extends AbstractCompiler {
 	}
 
 	public String parse() throws Exception {
-		String template = "VAR < _decl_ >: _body_ ENDVAR";
-		String declaration = "stack := < >, flag_o := 0, flag_s := 0, " +
-							" flag_z := 0, flag_p := 0, flag_c := 0," +
-							" ax := 0, ah := 0, al:= 0," +
-							" bx:= 0,  bh:= 0, bl:= 0," +
-							" cx:= 0, ch:= 0, cl:= 0," +
-							" dx:= 0, dh:= 0, dl:= 0," +
-							" si:= 0, di:= 0, bp:= 0," +
-							" sp:= 0, cs:= 0, ds:= 0, ss:= 0," +
-							" es:= 0 _decl_";
+		String template = "VAR < _decl_ >: _body_ENDVAR";
+		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
+				+ " flag_p := 0, flag_c := 0, \n"
+				+ " ax := 0, ah := 0, al:= 0," + " bx:= 0,  bh:= 0, bl:= 0, \n"
+				+ " cx:= 0, ch:= 0, cl:= 0," + " dx:= 0, dh:= 0, dl:= 0, \n"
+				+ " si:= 0, di:= 0, bp:= 0, sp:= 0,\n"
+				+ " cs:= 0, ds:= 0, ss:= 0," + " es:= 0 \n _decl_";
 
 		buffer = template.replace("_decl_", declaration);
 		Program();
 		buffer = buffer.replace("_decl_", "");
-		buffer = buffer.replace("_body_", "PRINT(flag_o);");
+		buffer = buffer.replace("_body_", "");
 		return buffer;
 	}
 
+	private void insIntoDecl(String... s) {
+		for (int i = 0; i < s.length; i++) {
+			buffer = buffer.replace("_decl_", s[i] + "_decl_");
+		}
+	}
+
+	private void insIntoBody(String... s) {
+		for (int i = 0; i < s.length; i++) {
+			buffer = buffer.replace("_body_", s[i] + "_body_");
+		}
+	}
+	
+	
 	private void Program() throws Exception {
 		if (curr.code == title) {
 			check(title);
@@ -119,6 +131,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == stack) {
 			check(stack);
 			check(number);
+			insIntoDecl(", stack :=< >");
 		}
 		if (curr.code == data) {
 			Data();
@@ -129,16 +142,26 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void Data() throws Exception {
+		boolean array = false;
 		check(data);
 		while (curr.code == ident) {
+			insIntoDecl(", ", curr.str, " := ");
 			check(ident);
 			check(db, dw);
 			if (curr.code == number || curr.code == string) {
+				if (la.code == comma) {
+					insIntoDecl("< ");
+					array = true;
+				}
 				Value();
 				while (curr.code == comma) {
 					check(comma);
+					insIntoDecl(", ");
 					Value();
 				}
+				if (array)
+					insIntoDecl(" >");
+
 			}
 		}
 
@@ -146,8 +169,10 @@ public class Parser extends AbstractCompiler {
 
 	private void Value() throws Exception {
 		if (curr.code == number) {
+			insIntoDecl(Integer.toString(curr.val));
 			check(number);
 		} else if (curr.code == string) {
+			insIntoDecl(curr.str);
 			check(string);
 		}
 	}
@@ -156,23 +181,64 @@ public class Parser extends AbstractCompiler {
 
 		check(code);
 		
-		if(curr.code == ident)
-			check(ident);
-		
-		while (curr.code == proc || curr.code == macro) {
-			if (curr.code == proc) {
+		insIntoBody("\nACTIONS start: \n");
+
+		while (curr.code == ident && (la.code == proc || la.code == macro)) {
+			if (la.code == proc)
 				Procedure();
-			} else
+			else
 				Macro();
 		}
-		while (curr.code == colon || oneArgComm.get(curr.code)
+		while (curr.code == ident && la.code == colon
+				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+			
+			if (curr.code == ident && la.code == colon)
+				Label();
+			else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+				Statement();
+
+		}
+		
+		insIntoBody("ENDACTIONS \n");
+	}
+	
+	private void Macro() throws Exception {
+		check(ident);
+		check(macro);
+		while (curr.code == ident) {
+			check(ident);
+		}
+		while (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+			Statement();
+		}
+		check(endm);
+	}
+
+	private void Procedure() throws Exception {
+		check(ident);
+		check(proc);
+		if (curr.code == far) {
+			check(far);
+		}
+		while (curr.code == ident || oneArgComm.get(curr.code)
 				|| twoArgComm.get(curr.code)) {
-			if (curr.code == colon) {
+			if (curr.code == ident) {
+				check(ident);
 				check(colon);
 			} else {
 				Statement();
 			}
+
 		}
+		check(ret);
+		check(ident);
+		check(endp);
+
+	}
+
+	private void Label() throws Exception {
+		check(ident);
+		check(colon);
 	}
 
 	private void Statement() throws Exception {
@@ -371,36 +437,6 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private void Macro() throws Exception {
-		check(macro);
-		while (curr.code == ident) {
-			check(ident);
-		}
-		while (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			Statement();
-		}
-		check(endm);
-	}
 
-	private void Procedure() throws Exception {
-		check(proc);
-		if (curr.code == far) {
-			check(far);
-		}
-		while (curr.code == ident || oneArgComm.get(curr.code)
-				|| twoArgComm.get(curr.code)) {
-			if (curr.code == ident) {
-				check(ident);
-				check(colon);
-			} else {
-				Statement();
-			}
-
-		}
-		check(ret);
-		check(ident);
-		check(endp);
-
-	}
 
 }
