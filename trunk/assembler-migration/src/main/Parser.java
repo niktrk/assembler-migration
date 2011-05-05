@@ -92,7 +92,7 @@ public class Parser extends AbstractCompiler {
 	}
 
 	public String parse() throws Exception {
-		String template = "VAR < _decl_ >: _body_ENDVAR";
+		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
 		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
 				+ " flag_p := 0, flag_c := 0, \n"
 				+ " ax := 0, ah := 0, al:= 0," + " bx:= 0,  bh:= 0, bl:= 0, \n"
@@ -104,6 +104,8 @@ public class Parser extends AbstractCompiler {
 		Program();
 		buffer = buffer.replace("_decl_", "");
 		buffer = buffer.replace("_body_", "");
+		buffer = buffer.replace("_proc_", "");
+
 		return buffer;
 	}
 
@@ -118,8 +120,13 @@ public class Parser extends AbstractCompiler {
 			buffer = buffer.replace("_body_", s[i] + "_body_");
 		}
 	}
-	
-	
+
+	private void insIntoProc(String... s) {
+		for (int i = 0; i < s.length; i++) {
+			buffer = buffer.replace("_proc_", s[i] + "_proc_");
+		}
+	}
+
 	private void Program() throws Exception {
 		if (curr.code == title) {
 			check(title);
@@ -172,7 +179,9 @@ public class Parser extends AbstractCompiler {
 			insIntoDecl(Integer.toString(curr.val));
 			check(number);
 		} else if (curr.code == string) {
+			insIntoDecl("\"");
 			insIntoDecl(curr.str);
+			insIntoDecl("\"");
 			check(string);
 		}
 	}
@@ -180,41 +189,62 @@ public class Parser extends AbstractCompiler {
 	private void Code() throws Exception {
 
 		check(code);
-		
-		insIntoBody("\nACTIONS start: \n");
 
-		while (curr.code == ident && (la.code == proc || la.code == macro)) {
-			if (la.code == proc)
-				Procedure();
-			else
-				Macro();
-		}
-		while (curr.code == ident && la.code == colon
-				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			
-			if (curr.code == ident && la.code == colon)
-				Label();
-			else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
-				Statement();
+		if (curr.code == ident && (la.code == proc || la.code == macro)) {
+			insIntoBody("BEGIN \n");
+			insIntoProc("WHERE \n");
 
+			while (curr.code == ident && (la.code == proc || la.code == macro)) {
+				if (la.code == proc)
+					Procedure();
+				else
+					Macro();
+			}
+			insIntoProc("END \n");
 		}
-		
-		insIntoBody("ENDACTIONS \n");
+
+		if (curr.code == ident && la.code == colon || oneArgComm.get(curr.code)
+				|| twoArgComm.get(curr.code)) {
+			insIntoBody("ACTIONS beg: \n");
+			insIntoBody("beg== \n");
+			while (curr.code == ident && la.code == colon
+					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+
+				if (curr.code == ident && la.code == colon)
+					Label();
+				else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+					Statement();
+
+			}
+			insIntoBody("END\n");
+			insIntoBody("ENDACTIONS \n");
+		}
 	}
-	
+
 	private void Macro() throws Exception {
+		insIntoProc("PROC ", curr.str, "(");
 		check(ident);
 		check(macro);
-		while (curr.code == ident) {
+		if (curr.code == ident) {
+			insIntoProc(curr.str);
 			check(ident);
+			while (curr.code == ident) {
+				insIntoProc(",",curr.str);
+				check(ident);
+			}
 		}
+		insIntoProc(") ==\n");
 		while (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 			Statement();
 		}
 		check(endm);
+		insIntoProc("END \n");
+
 	}
 
 	private void Procedure() throws Exception {
+		insIntoProc("PROC ", curr.str, "()==\n");
+
 		check(ident);
 		check(proc);
 		if (curr.code == far) {
@@ -223,8 +253,7 @@ public class Parser extends AbstractCompiler {
 		while (curr.code == ident || oneArgComm.get(curr.code)
 				|| twoArgComm.get(curr.code)) {
 			if (curr.code == ident) {
-				check(ident);
-				check(colon);
+				Label();
 			} else {
 				Statement();
 			}
@@ -233,10 +262,13 @@ public class Parser extends AbstractCompiler {
 		check(ret);
 		check(ident);
 		check(endp);
+		insIntoProc("END \n");
 
 	}
 
 	private void Label() throws Exception {
+		insIntoBody("CALL ", curr.str, "\nEND\n");
+		insIntoBody(curr.str, "==\n");
 		check(ident);
 		check(colon);
 	}
@@ -436,7 +468,5 @@ public class Parser extends AbstractCompiler {
 			throw new IllegalArgumentException();
 		}
 	}
-
-
 
 }
