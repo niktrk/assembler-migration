@@ -117,8 +117,8 @@ public class Parser extends AbstractCompiler {
 		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
 		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
 				+ " flag_p := 0, flag_c := 0, \n"
-				+ " ax := 0, " + " bx:= 0, \n"
-				+ " cx:= 0," + " dx:= 0, \n"
+				+ " ax := 0, " + " bx:= 0, overflow:= 0, \n"
+				+ " cx:= 0," + " dx:= 0, temp := 0, \n"
 				+ " si:= 0, di:= 0, bp:= 0, sp:= 0, \n"
 				+ " cs:= 0, ds:= 0, ss:= 0," + " es:= 0 \n _decl_";
 
@@ -382,11 +382,27 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 	
-	
 	private void add(Token arg1, Token arg2) {
-		
+		if (doubleByte.get(arg1.code)) {
+			
+			String overflow = "65536";
+			insert("overflow := ", overflow);
+			insert(str[arg1.code], " := ", str[arg1.code], " + ");
+			
+			if (doubleByte.get(arg2.code)) {
+				insert(str[arg2.code], ";\n");
+			} else { // dw variable or const
+				insert(arg2.str, ";\n");
+			}
+			generateOverflowCheck(str[arg1.code], overflow);
+			
+		}
 	}
 
+	private void generateOverflowCheck(String temp, String overflow) {
+		insert("IF ", temp, " >= ", overflow, " THEN\n", temp, " := ", temp, " MOD ", overflow, ";\n flag_o :=1;\n flag_c := 1;\n ELSE\n flag_o :=0;\n flag_c := 0;\n FI ;\n");
+	}
+	
 	private void xchg(Token arg1, Token arg2) {
 		String arg1Name;
 		String arg2Name;
@@ -409,12 +425,11 @@ public class Parser extends AbstractCompiler {
 		}
 		
 		if (doubleByte.get(arg1.code)) {
-			// arg2 is also contained in doubleByte
 			
 			insert(str[arg1.code], " := ");
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
-			} else { // dw variable
+			} else { // dw variable or const
 				insert(arg2.str, ";\n");
 			}
 			
@@ -425,7 +440,7 @@ public class Parser extends AbstractCompiler {
 				insert("(", getXRegister(str[arg2.code]), " DIV 256) * 256;\n");
 			} else if (lowByte.get(arg2.code)) {
 				insert("(", getXRegister(str[arg2.code]), " MOD 256) * 256;\n");
-			} else { // db variable
+			} else { // db variable or const
 				insert(arg2.str, " * 256;\n");
 			}
 			
@@ -436,7 +451,7 @@ public class Parser extends AbstractCompiler {
 				insert("(", getXRegister(str[arg2.code]), " MOD 256);\n");
 			} else if (highByte.get(arg2.code)) {
 				insert("(", getXRegister(str[arg2.code]), " DIV 256);\n");
-			} else { // db variable
+			} else { // db variable or const
 				insert(arg2.str, ";\n");
 			}
 			
@@ -449,7 +464,7 @@ public class Parser extends AbstractCompiler {
 				insert(getXRegister(str[arg2.code]), " MOD 256;\n");
 			} else if (highByte.get(arg2.code)) {
 				insert(getXRegister(str[arg2.code]), " DIV 256;\n");
-			} else { // db or dw variable
+			} else { // db or dw variable or const
 				insert(arg2.str, ";\n");
 			}
 			
