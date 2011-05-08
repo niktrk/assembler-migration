@@ -60,7 +60,7 @@ public class Scanner extends AbstractCompiler{
 			hex = true;
 			read();
 		}
-		Token ret = new Token(number, Integer.parseInt(num), hex, "");
+		Token ret = new Token(number, Integer.parseInt(num), hex, num);
 		return ret;
 	}
 

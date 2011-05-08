@@ -12,8 +12,9 @@ public class Parser extends AbstractCompiler {
 	private Token curr, la;
 	private String buffer;
 	private boolean inProc = false;
+	private boolean hasHelperVar = false;
 
-	private BitSet oneArgComm, twoArgComm, registers;
+	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -70,13 +71,33 @@ public class Parser extends AbstractCompiler {
 		registers.set(ds);
 		registers.set(ss);
 		registers.set(es);
-
+		
+		lowByte = new BitSet();
+		lowByte.set(al);
+		lowByte.set(bl);
+		lowByte.set(cl);
+		lowByte.set(dl);
+		
+		highByte = new BitSet();
+		highByte.set(ah);
+		highByte.set(bh);
+		highByte.set(ch);
+		highByte.set(dh);
+		
+		doubleByte = (BitSet) registers.clone();
+		doubleByte.xor(lowByte);
+		doubleByte.xor(highByte);
+		
 		buffer = new String();
 
 		curr = sc.next();
 		la = sc.next();
 	}
 
+	private String getXRegister(String name) {
+		return name.charAt(0) + "x";
+	}
+	
 	private void check(int... code) throws Exception {
 		boolean in = false;
 		for (int i = 0; i < code.length; i++) {
@@ -96,9 +117,9 @@ public class Parser extends AbstractCompiler {
 		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
 		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
 				+ " flag_p := 0, flag_c := 0, \n"
-				+ " ax := 0, ah := 0, al:= 0," + " bx:= 0,  bh:= 0, bl:= 0, \n"
-				+ " cx:= 0, ch:= 0, cl:= 0," + " dx:= 0, dh:= 0, dl:= 0, \n"
-				+ " si:= 0, di:= 0, bp:= 0, sp:= 0,\n"
+				+ " ax := 0, " + " bx:= 0, \n"
+				+ " cx:= 0," + " dx:= 0, \n"
+				+ " si:= 0, di:= 0, bp:= 0, sp:= 0, \n"
 				+ " cs:= 0, ds:= 0, ss:= 0," + " es:= 0 \n _decl_";
 
 		buffer = template.replace("_decl_", declaration);
@@ -308,20 +329,35 @@ public class Parser extends AbstractCompiler {
 			TwoArgStatement();
 		}
 	}
+	
+	private Token[] getArguments() throws Exception{
+		Token[] ret = new Token[2];
+		ret[0] = Argument();
+		check(comma);
+		ret[1] = Argument();
+		return ret;
+	}
 
 	private void TwoArgStatement() throws Exception {
+		Token[] arguments;
 		switch (curr.code) {
 		case mov:
 			check(mov);
+			arguments = getArguments();
+			mov(arguments[0], arguments[1]);
 			break;
 		case xchg:
 			check(xchg);
+			arguments = getArguments();
+			xchg(arguments[0], arguments[1]);
 			break;
 		case cmp:
 			check(cmp);
 			break;
 		case add:
 			check(add);
+			arguments = getArguments();
+			add(arguments[0], arguments[1]);
 			break;
 		case sub:
 			check(sub);
@@ -344,10 +380,81 @@ public class Parser extends AbstractCompiler {
 		default:
 			throw new IllegalArgumentException();
 		}
-		Argument();
-		check(comma);
-		Argument();
 	}
+	
+	
+	private void add(Token arg1, Token arg2) {
+		
+	}
+
+	private void xchg(Token arg1, Token arg2) {
+		String arg1Name;
+		String arg2Name;
+		if (registers.get(arg1.code)) {
+			arg1Name = getXRegister(str[arg1.code]);
+		} else {
+			arg1Name = arg1.str;
+		}
+		if (registers.get(arg2.code)) {
+			arg2Name = getXRegister(str[arg2.code]);
+		} else {
+			arg2Name = arg2.str;
+		}
+		insert("< ", arg1Name, " := ", arg2Name,", ", arg2Name, " := ", arg1Name," >;\n");
+	}
+
+	private void mov(Token arg1, Token arg2) throws Exception{
+		if (arg2.code == atdata && arg2.code == offset) {
+			return;
+		}
+		
+		if (doubleByte.get(arg1.code)) {
+			// arg2 is also contained in doubleByte
+			
+			insert(str[arg1.code], " := ");
+			if (doubleByte.get(arg2.code)) {
+				insert(str[arg2.code], ";\n");
+			} else { // dw variable
+				insert(arg2.str, ";\n");
+			}
+			
+		} else if (highByte.get(arg1.code)) {
+			
+			insert(getXRegister(str[arg1.code]), " := ", "(", getXRegister(str[arg1.code]), " MOD 256) + ");
+			if (highByte.get(arg2.code)) {
+				insert("(", getXRegister(str[arg2.code]), " DIV 256) * 256;\n");
+			} else if (lowByte.get(arg2.code)) {
+				insert("(", getXRegister(str[arg2.code]), " MOD 256) * 256;\n");
+			} else { // db variable
+				insert(arg2.str, " * 256;\n");
+			}
+			
+		} else if (lowByte.get(arg1.code)) {
+			
+			insert(getXRegister(str[arg1.code]), " := ", "(", getXRegister(str[arg1.code]), " DIV 256) * 256 + ");
+			if (lowByte.get(arg2.code)) {
+				insert("(", getXRegister(str[arg2.code]), " MOD 256);\n");
+			} else if (highByte.get(arg2.code)) {
+				insert("(", getXRegister(str[arg2.code]), " DIV 256);\n");
+			} else { // db variable
+				insert(arg2.str, ";\n");
+			}
+			
+		} else { // db or dw variable
+			
+			insert(arg1.str, " := ");
+			if (doubleByte.get(arg2.code)) {
+				insert(str[arg2.code], ";\n");
+			} else if (lowByte.get(arg2.code)) {
+				insert(getXRegister(str[arg2.code]), " MOD 256;\n");
+			} else if (highByte.get(arg2.code)) {
+				insert(getXRegister(str[arg2.code]), " DIV 256;\n");
+			} else { // db or dw variable
+				insert(arg2.str, ";\n");
+			}
+			
+		}
+	} 
 
 	private void OneArgStatement() throws Exception {
 		switch (curr.code) {
@@ -411,90 +518,118 @@ public class Parser extends AbstractCompiler {
 		Argument();
 	}
 
-	private void Argument() throws Exception {
+	private Token Argument() throws Exception {
+		Token ret = new Token();
 		if (curr.code == ident) {
+			ret = curr;
 			check(ident);
 		} else if (curr.code == number) {
+			ret = curr;
 			check(number);
 		} else if (registers.get(curr.code)) {
-			Register();
+			ret = Register();
 		} else if (curr.code == lbrack) {
 			check(lbrack);
-			Register();
+			ret = Register();
 			check(rbrack);
 		} else if (curr.code == atdata) {
+			ret = curr;
 			check(atdata);
 		} else if (curr.code == offset) {
+			ret = curr;
 			check(offset);
 			check(ident);
 		}
+		return ret;
 	}
 
-	private void Register() throws Exception {
+	private Token Register() throws Exception {
+		Token ret = new Token();
 		switch (curr.code) {
 		case ax:
+			ret = curr;
 			check(ax);
 			break;
 		case ah:
+			ret = curr;
 			check(ah);
 			break;
 		case al:
+			ret = curr;
 			check(al);
 			break;
 		case bx:
+			ret = curr;
 			check(bx);
 			break;
 		case bh:
+			ret = curr;
 			check(bh);
 			break;
 		case bl:
+			ret = curr;
 			check(bl);
 			break;
 		case cx:
+			ret = curr;
 			check(cx);
 			break;
 		case ch:
+			ret = curr;
 			check(ch);
 			break;
 		case cl:
+			ret = curr;
 			check(cl);
 			break;
 		case dx:
+			ret = curr;
 			check(dx);
 			break;
 		case dh:
+			ret = curr;
 			check(dh);
 			break;
 		case dl:
+			ret = curr;
 			check(dl);
 			break;
 		case si:
+			ret = curr;
 			check(si);
 			break;
 		case di:
+			ret = curr;
 			check(di);
 			break;
 		case bp:
+			ret = curr;
 			check(bp);
 			break;
 		case sp:
+			ret = curr;
 			check(sp);
 			break;
 		case cs:
+			ret = curr;
 			check(cs);
 			break;
 		case ds:
+			ret = curr;
 			check(ds);
 			break;
 		case ss:
+			ret = curr;
 			check(ss);
 			break;
 		case es:
+			ret = curr;
 			check(es);
 			break;
 		default:
 			throw new IllegalArgumentException();
 		}
+		return ret;
 	}
 
 }
