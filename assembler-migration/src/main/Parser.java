@@ -237,10 +237,10 @@ public class Parser extends AbstractCompiler {
 		insIntoProc("PROC ", curr.str, "(");
 		check(ident);
 		check(macro);
-		if (curr.code == ident) {
+		if (curr.code == ident && la.code != colon) {
 			insIntoProc(curr.str);
 			check(ident);
-			while (curr.code == ident) {
+			while (curr.code == ident && la.code != colon) {
 				insIntoProc(",", curr.str);
 				check(ident);
 			}
@@ -249,8 +249,15 @@ public class Parser extends AbstractCompiler {
 		insIntoProc("ACTIONS beg: \n");
 		insIntoProc("beg== \n");
 
-		while (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			Statement();
+		while (curr.code == ident && la.code == colon
+				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+
+			if (curr.code == ident && la.code == colon){
+				Label();
+			}
+			else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+				Statement();
+
 		}
 		check(endm);
 		insIntoProc("END\n");
