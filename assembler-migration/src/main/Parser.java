@@ -11,6 +11,7 @@ public class Parser extends AbstractCompiler {
 	private Scanner sc;
 	private Token curr, la;
 	private String buffer;
+	private boolean inProc = false;
 
 	private BitSet oneArgComm, twoArgComm, registers;
 
@@ -120,12 +121,21 @@ public class Parser extends AbstractCompiler {
 			buffer = buffer.replace("_body_", s[i] + "_body_");
 		}
 	}
-
+	
 	private void insIntoProc(String... s) {
 		for (int i = 0; i < s.length; i++) {
 			buffer = buffer.replace("_proc_", s[i] + "_proc_");
 		}
 	}
+
+	private void insert(String... s) {
+		if(inProc){
+			insIntoProc(s);
+		}
+		else insIntoBody(s);
+	}
+
+
 
 	private void Program() throws Exception {
 		if (curr.code == title) {
@@ -193,7 +203,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == ident && (la.code == proc || la.code == macro)) {
 			insIntoBody("BEGIN \n");
 			insIntoProc("WHERE \n");
-
+			inProc = true;
 			while (curr.code == ident && (la.code == proc || la.code == macro)) {
 				if (la.code == proc)
 					Procedure();
@@ -207,11 +217,13 @@ public class Parser extends AbstractCompiler {
 				|| twoArgComm.get(curr.code)) {
 			insIntoBody("ACTIONS beg: \n");
 			insIntoBody("beg== \n");
+			inProc = false;
 			while (curr.code == ident && la.code == colon
 					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
-				if (curr.code == ident && la.code == colon)
+				if (curr.code == ident && la.code == colon){
 					Label();
+				}
 				else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
 					Statement();
 
@@ -229,21 +241,28 @@ public class Parser extends AbstractCompiler {
 			insIntoProc(curr.str);
 			check(ident);
 			while (curr.code == ident) {
-				insIntoProc(",",curr.str);
+				insIntoProc(",", curr.str);
 				check(ident);
 			}
 		}
 		insIntoProc(") ==\n");
+		insIntoProc("ACTIONS beg: \n");
+		insIntoProc("beg== \n");
+
 		while (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 			Statement();
 		}
 		check(endm);
+		insIntoProc("END\n");
+		insIntoProc("ENDACTIONS \n");
 		insIntoProc("END \n");
 
 	}
 
 	private void Procedure() throws Exception {
 		insIntoProc("PROC ", curr.str, "()==\n");
+		insIntoProc("ACTIONS beg: \n");
+		insIntoProc("beg== \n");
 
 		check(ident);
 		check(proc);
@@ -262,13 +281,15 @@ public class Parser extends AbstractCompiler {
 		check(ret);
 		check(ident);
 		check(endp);
+		insIntoProc("END\n");
+		insIntoProc("ENDACTIONS \n");
 		insIntoProc("END \n");
 
 	}
 
 	private void Label() throws Exception {
-		insIntoBody("CALL ", curr.str, "\nEND\n");
-		insIntoBody(curr.str, "==\n");
+		insert("CALL ", curr.str, "\nEND\n");
+		insert(curr.str, "==\n");
 		check(ident);
 		check(colon);
 	}
