@@ -20,4 +20,7 @@ mov ah,9
 mov cl,nik
 xchg let, nik
 
+add cx, ax
+add cx, let
+
 end start
