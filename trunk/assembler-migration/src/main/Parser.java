@@ -83,7 +83,7 @@ public class Parser extends AbstractCompiler {
 		highByte.set(bh);
 		highByte.set(ch);
 		highByte.set(dh);
-		
+
 		singleByte = new BitSet();
 		singleByte.or(lowByte);
 		singleByte.or(highByte);
@@ -404,17 +404,20 @@ public class Parser extends AbstractCompiler {
 	private void cmp(Token arg1, Token arg2) {
 
 	}
-	
-	private void add(Token arg1, Token arg2){
+
+	private void add(Token arg1, Token arg2) {
 		arithmInstruct(arg1, arg2, "+");
 	}
-	private void sub(Token arg1, Token arg2){
+
+	private void sub(Token arg1, Token arg2) {
 		arithmInstruct(arg1, arg2, "-");
 	}
-	private void mul(Token arg1, Token arg2){
-		arithmInstruct(arg1, arg2, "*");	
+
+	private void mul(Token arg1, Token arg2) {
+		arithmInstruct(arg1, arg2, "*");
 	}
-	private void div(Token arg1, Token arg2){
+
+	private void div(Token arg1, Token arg2) {
 		arithmInstruct(arg1, arg2, "/");
 	}
 
@@ -423,41 +426,38 @@ public class Parser extends AbstractCompiler {
 		if (doubleByte.get(arg1.code)) {
 			String overflow = "65536";
 			insert("overflow := ", overflow, ";\n");
-			insert(str[arg1.code], " := ", str[arg1.code], op);
+			insert("temp := ", str[arg1.code], ";\n");
+			insert("temp := temp", op);
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
 			} else { // dw variable or const
 				insert(arg2.str, ";\n");
 			}
-			setFlags(str[arg1.code], overflow);
-			
-			
+			setFlags(arg1, overflow);
+
 		} else if (highByte.get(arg1.code)) {
 			String overflow = "256";
 			insert("overflow := ", overflow, ";\n");
-			insert(getXRegister(arg1.code), " := (",
-					getXRegister(arg1.code), " MOD 256) + (",
-					getByteRegister(arg1.code), ") * 256", op);
-			if (singleByte.get(arg2.code)){
-				insert("(",getByteRegister(arg2.code), ")*256;\n");
+			insert("temp := ", getXRegister(arg1.code), " DIV 256;\n");
+			insert("temp := temp", op);
+			if (singleByte.get(arg2.code)) {
+				insert("(", getByteRegister(arg2.code), ");\n");
 			} else { // db variable or const
-				insert(arg2.str, " * 256;\n");
+				insert(arg2.str, ";\n");
 			}
-			setFlags(str[arg1.code], overflow);
+			setFlags(arg1, overflow);
 
 		} else if (lowByte.get(arg1.code)) {
 			String overflow = "256";
 			insert("overflow := ", overflow, ";\n");
-			insert(getXRegister(arg1.code), " := (",
-				   getXRegister(arg1.code), " DIV 256) * 256 + (",
-				   getByteRegister(arg1.code), ")", op);
-				   	
+			insert("temp := ", getXRegister(arg1.code), " MOD 256;\n");
+			insert("temp := temp", op);
 			if (singleByte.get(arg2.code)) {
-				insert("(", getByteRegister(arg2.code),");\n");
+				insert("(", getByteRegister(arg2.code), ");\n");
 			} else { // db variable or const
 				insert(arg2.str, ";\n");
 			}
-			setFlags(str[arg1.code], overflow);
+			setFlags(arg1, overflow);
 
 		} else { // db or dw variable
 			insert(arg1.str, " := ");
@@ -472,26 +472,33 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private void generateOverflowCheck(String temp, String overflow) {
-		insert("IF ", temp, " >= ", overflow, " THEN\n ", temp, " := ", temp,
-				" MOD ", overflow, ";\n",
-				" flag_o :=1;\n flag_c := 1;\nELSE\n flag_o :=0;\n flag_c := 0;\nFI\n");
+	private void generateOverflowCheck(Token arg, String overflow) {
+		insert("IF  temp  >= ", overflow, " THEN\n temp :=  temp", " MOD ",
+				overflow, ";\n ");
+		insert(" flag_o :=1;\n flag_c := 1\nELSE\n flag_o :=0;\n flag_c := 0;\nFI;\n");
+		if (doubleByte.get(arg.code)) {
+			insert(getXRegister(arg.code), " := temp; \n");
+		} else if (lowByte.get(arg.code)) {
+			insert(getXRegister(arg.code), " := (", getXRegister(arg.code),
+					" DIV 256)*256 + temp; \n");
+		} else if (highByte.get(arg.code)) {
+			insert(getXRegister(arg.code), ":= (", getXRegister(arg.code),
+					" MOD 256) + temp*256; \n");
+		}
 	}
 
-	private void generateZeroCheck(String temp) {
-		insert("IF ", temp,
-				" == 0 THEN\n flag_z :=1;\nELSE\n flag_z :=0;\nFI\n");
+	private void generateZeroCheck() {
+		insert("IF temp = 0 THEN\n flag_z :=1\nELSE\n flag_z :=0;\nFI;\n");
 	}
 
-	private void generateSignCheck(String temp) {
-		insert("IF ", temp,
-				" < 0 THEN\n flag_s :=1;\nELSE\n flag_s :=0;\nFI\n");
+	private void generateSignCheck() {
+		insert("IF temp < 0 THEN\n flag_s :=1\nELSE\n flag_s :=0;\nFI\n");
 	}
 
-	private void setFlags(String temp, String overflow) {
-		generateOverflowCheck(temp, overflow);
-		generateZeroCheck(temp);
-		generateSignCheck(temp);
+	private void setFlags(Token arg, String overflow) {
+		generateOverflowCheck(arg, overflow);
+		generateZeroCheck();
+		generateSignCheck();
 	}
 
 	private void xchg(Token arg1, Token arg2) {
