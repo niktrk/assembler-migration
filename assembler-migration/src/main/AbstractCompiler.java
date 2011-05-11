@@ -72,7 +72,7 @@ public abstract class AbstractCompiler {
 			atdata = 74, // @data
 			offset = 75;
 
-	String[] str = { "none", "ident", "number", "comma", "colon", "lbrack",
+	protected static final String[] str = { "none", "ident", "number", "comma", "colon", "lbrack",
 			"rbrack", "string", "title", "model", "stack", "data", "code",
 			"end", "small", "compact", "medium", "large", "db", "dw", "proc",
 			"far", "ret", "endp", "macro", "endm", "interr", "loop", "push",

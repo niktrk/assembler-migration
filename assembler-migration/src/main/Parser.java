@@ -12,9 +12,9 @@ public class Parser extends AbstractCompiler {
 	private Token curr, la;
 	private String buffer;
 	private boolean inProc = false;
-	private boolean hasHelperVar = false;
 
-	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte;
+	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte,
+			doubleByte, singleByte;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -71,33 +71,47 @@ public class Parser extends AbstractCompiler {
 		registers.set(ds);
 		registers.set(ss);
 		registers.set(es);
-		
+
 		lowByte = new BitSet();
 		lowByte.set(al);
 		lowByte.set(bl);
 		lowByte.set(cl);
 		lowByte.set(dl);
-		
+
 		highByte = new BitSet();
 		highByte.set(ah);
 		highByte.set(bh);
 		highByte.set(ch);
 		highByte.set(dh);
 		
+		singleByte = new BitSet();
+		singleByte.or(lowByte);
+		singleByte.or(highByte);
+
 		doubleByte = (BitSet) registers.clone();
 		doubleByte.xor(lowByte);
 		doubleByte.xor(highByte);
-		
+
 		buffer = new String();
 
 		curr = sc.next();
 		la = sc.next();
 	}
 
-	private String getXRegister(String name) {
-		return name.charAt(0) + "x";
+	private String getXRegister(int code) {
+		return str[code].charAt(0) + "x";
 	}
-	
+
+	private String getByteRegister(int code) {
+		if (lowByte.get(code)) {
+			return str[code].charAt(0) + "x MOD 256";
+		}
+		if (highByte.get(code)) {
+			return str[code].charAt(0) + "x DIV 256";
+		}
+		return "";
+	}
+
 	private void check(int... code) throws Exception {
 		boolean in = false;
 		for (int i = 0; i < code.length; i++) {
@@ -116,9 +130,9 @@ public class Parser extends AbstractCompiler {
 	public String parse() throws Exception {
 		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
 		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
-				+ " flag_p := 0, flag_c := 0, \n"
-				+ " ax := 0, " + " bx:= 0, overflow:= 0, \n"
-				+ " cx:= 0," + " dx:= 0, temp := 0, \n"
+				+ " flag_c := 0, \n" + " ax := 0, "
+				+ " bx:= 0, overflow:= 0, \n" + " cx:= 0,"
+				+ " dx:= 0, temp := 0, \n"
 				+ " si:= 0, di:= 0, bp:= 0, sp:= 0, \n"
 				+ " cs:= 0, ds:= 0, ss:= 0," + " es:= 0 \n _decl_";
 
@@ -142,7 +156,7 @@ public class Parser extends AbstractCompiler {
 			buffer = buffer.replace("_body_", s[i] + "_body_");
 		}
 	}
-	
+
 	private void insIntoProc(String... s) {
 		for (int i = 0; i < s.length; i++) {
 			buffer = buffer.replace("_proc_", s[i] + "_proc_");
@@ -150,13 +164,11 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void insert(String... s) {
-		if(inProc){
+		if (inProc) {
 			insIntoProc(s);
-		}
-		else insIntoBody(s);
+		} else
+			insIntoBody(s);
 	}
-
-
 
 	private void Program() throws Exception {
 		if (curr.code == title) {
@@ -242,10 +254,10 @@ public class Parser extends AbstractCompiler {
 			while (curr.code == ident && la.code == colon
 					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
-				if (curr.code == ident && la.code == colon){
+				if (curr.code == ident && la.code == colon) {
 					Label();
-				}
-				else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+				} else if (oneArgComm.get(curr.code)
+						|| twoArgComm.get(curr.code))
 					Statement();
 
 			}
@@ -273,10 +285,9 @@ public class Parser extends AbstractCompiler {
 		while (curr.code == ident && la.code == colon
 				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
-			if (curr.code == ident && la.code == colon){
+			if (curr.code == ident && la.code == colon) {
 				Label();
-			}
-			else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+			} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
 				Statement();
 
 		}
@@ -329,8 +340,8 @@ public class Parser extends AbstractCompiler {
 			TwoArgStatement();
 		}
 	}
-	
-	private Token[] getArguments() throws Exception{
+
+	private Token[] getArguments() throws Exception {
 		Token[] ret = new Token[2];
 		ret[0] = Argument();
 		check(comma);
@@ -353,6 +364,8 @@ public class Parser extends AbstractCompiler {
 			break;
 		case cmp:
 			check(cmp);
+			arguments = getArguments();
+			cmp(arguments[0], arguments[1]);
 			break;
 		case add:
 			check(add);
@@ -361,12 +374,18 @@ public class Parser extends AbstractCompiler {
 			break;
 		case sub:
 			check(sub);
+			arguments = getArguments();
+			sub(arguments[0], arguments[1]);
 			break;
 		case mul:
 			check(mul);
+			arguments = getArguments();
+			mul(arguments[0], arguments[1]);
 			break;
 		case div:
 			check(div);
+			arguments = getArguments();
+			div(arguments[0], arguments[1]);
 			break;
 		case and:
 			check(and);
@@ -381,95 +400,170 @@ public class Parser extends AbstractCompiler {
 			throw new IllegalArgumentException();
 		}
 	}
+
+	private void cmp(Token arg1, Token arg2) {
+
+	}
 	
-	private void add(Token arg1, Token arg2) {
+	private void add(Token arg1, Token arg2){
+		arithmInstruct(arg1, arg2, "+");
+	}
+	private void sub(Token arg1, Token arg2){
+		arithmInstruct(arg1, arg2, "-");
+	}
+	private void mul(Token arg1, Token arg2){
+		arithmInstruct(arg1, arg2, "*");	
+	}
+	private void div(Token arg1, Token arg2){
+		arithmInstruct(arg1, arg2, "/");
+	}
+
+	private void arithmInstruct(Token arg1, Token arg2, String op) {
+		op = " " + op + " ";
 		if (doubleByte.get(arg1.code)) {
-			
 			String overflow = "65536";
-			insert("overflow := ", overflow);
-			insert(str[arg1.code], " := ", str[arg1.code], " + ");
-			
+			insert("overflow := ", overflow, ";\n");
+			insert(str[arg1.code], " := ", str[arg1.code], op);
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
 			} else { // dw variable or const
 				insert(arg2.str, ";\n");
 			}
-			generateOverflowCheck(str[arg1.code], overflow);
+			setFlags(str[arg1.code], overflow);
 			
+			
+		} else if (highByte.get(arg1.code)) {
+			String overflow = "256";
+			insert("overflow := ", overflow, ";\n");
+			insert(getXRegister(arg1.code), " := (",
+					getXRegister(arg1.code), " MOD 256) + (",
+					getByteRegister(arg1.code), ") * 256", op);
+			if (singleByte.get(arg2.code)){
+				insert("(",getByteRegister(arg2.code), ")*256;\n");
+			} else { // db variable or const
+				insert(arg2.str, " * 256;\n");
+			}
+			setFlags(str[arg1.code], overflow);
+
+		} else if (lowByte.get(arg1.code)) {
+			String overflow = "256";
+			insert("overflow := ", overflow, ";\n");
+			insert(getXRegister(arg1.code), " := (",
+				   getXRegister(arg1.code), " DIV 256) * 256 + (",
+				   getByteRegister(arg1.code), ")", op);
+				   	
+			if (singleByte.get(arg2.code)) {
+				insert("(", getByteRegister(arg2.code),");\n");
+			} else { // db variable or const
+				insert(arg2.str, ";\n");
+			}
+			setFlags(str[arg1.code], overflow);
+
+		} else { // db or dw variable
+			insert(arg1.str, " := ");
+			insert(arg1.str, op);
+			if (doubleByte.get(arg2.code)) {
+				insert(str[arg2.code], ";\n");
+			} else if (singleByte.get(arg2.code)) {
+				insert(getByteRegister(arg2.code), ";\n");
+			} else { // db or dw variable or const
+				insert(arg2.str, ";\n");
+			}
 		}
 	}
 
 	private void generateOverflowCheck(String temp, String overflow) {
-		insert("IF ", temp, " >= ", overflow, " THEN\n", temp, " := ", temp, " MOD ", overflow, ";\n flag_o :=1;\n flag_c := 1;\n ELSE\n flag_o :=0;\n flag_c := 0;\n FI ;\n");
+		insert("IF ", temp, " >= ", overflow, " THEN\n ", temp, " := ", temp,
+				" MOD ", overflow, ";\n",
+				" flag_o :=1;\n flag_c := 1;\nELSE\n flag_o :=0;\n flag_c := 0;\nFI\n");
 	}
-	
+
+	private void generateZeroCheck(String temp) {
+		insert("IF ", temp,
+				" == 0 THEN\n flag_z :=1;\nELSE\n flag_z :=0;\nFI\n");
+	}
+
+	private void generateSignCheck(String temp) {
+		insert("IF ", temp,
+				" < 0 THEN\n flag_s :=1;\nELSE\n flag_s :=0;\nFI\n");
+	}
+
+	private void setFlags(String temp, String overflow) {
+		generateOverflowCheck(temp, overflow);
+		generateZeroCheck(temp);
+		generateSignCheck(temp);
+	}
+
 	private void xchg(Token arg1, Token arg2) {
 		String arg1Name;
 		String arg2Name;
 		if (registers.get(arg1.code)) {
-			arg1Name = getXRegister(str[arg1.code]);
+			arg1Name = getXRegister(arg1.code);
 		} else {
 			arg1Name = arg1.str;
 		}
 		if (registers.get(arg2.code)) {
-			arg2Name = getXRegister(str[arg2.code]);
+			arg2Name = getXRegister(arg2.code);
 		} else {
 			arg2Name = arg2.str;
 		}
-		insert("< ", arg1Name, " := ", arg2Name,", ", arg2Name, " := ", arg1Name," >;\n");
+		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ",
+				arg1Name, " >;\n");
 	}
 
-	private void mov(Token arg1, Token arg2) throws Exception{
+	private void mov(Token arg1, Token arg2) throws Exception {
 		if (arg2.code == atdata && arg2.code == offset) {
 			return;
 		}
-		
+
 		if (doubleByte.get(arg1.code)) {
-			
+
 			insert(str[arg1.code], " := ");
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
 			} else { // dw variable or const
 				insert(arg2.str, ";\n");
 			}
-			
+
 		} else if (highByte.get(arg1.code)) {
-			
-			insert(getXRegister(str[arg1.code]), " := ", "(", getXRegister(str[arg1.code]), " MOD 256) + ");
+
+			insert(getXRegister(arg1.code), " := ", "(",
+					getXRegister(arg1.code), " MOD 256) + ");
 			if (highByte.get(arg2.code)) {
-				insert("(", getXRegister(str[arg2.code]), " DIV 256) * 256;\n");
+				insert("(", getXRegister(arg2.code), " DIV 256) * 256;\n");
 			} else if (lowByte.get(arg2.code)) {
-				insert("(", getXRegister(str[arg2.code]), " MOD 256) * 256;\n");
+				insert("(", getXRegister(arg2.code), " MOD 256) * 256;\n");
 			} else { // db variable or const
 				insert(arg2.str, " * 256;\n");
 			}
-			
+
 		} else if (lowByte.get(arg1.code)) {
-			
-			insert(getXRegister(str[arg1.code]), " := ", "(", getXRegister(str[arg1.code]), " DIV 256) * 256 + ");
+
+			insert(getXRegister(arg1.code), " := ", "(",
+					getXRegister(arg1.code), " DIV 256) * 256 + ");
 			if (lowByte.get(arg2.code)) {
-				insert("(", getXRegister(str[arg2.code]), " MOD 256);\n");
+				insert("(", getXRegister(arg2.code), " MOD 256);\n");
 			} else if (highByte.get(arg2.code)) {
-				insert("(", getXRegister(str[arg2.code]), " DIV 256);\n");
+				insert("(", getXRegister(arg2.code), " DIV 256);\n");
 			} else { // db variable or const
 				insert(arg2.str, ";\n");
 			}
-			
+
 		} else { // db or dw variable
-			
+
 			insert(arg1.str, " := ");
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
 			} else if (lowByte.get(arg2.code)) {
-				insert(getXRegister(str[arg2.code]), " MOD 256;\n");
+				insert(getXRegister(arg2.code), " MOD 256;\n");
 			} else if (highByte.get(arg2.code)) {
-				insert(getXRegister(str[arg2.code]), " DIV 256;\n");
+				insert(getXRegister(arg2.code), " DIV 256;\n");
 			} else { // db or dw variable or const
 				insert(arg2.str, ";\n");
 			}
-			
+
 		}
-	} 
+	}
 
 	private void OneArgStatement() throws Exception {
 		switch (curr.code) {
