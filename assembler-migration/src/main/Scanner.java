@@ -81,7 +81,7 @@ public class Scanner extends AbstractCompiler{
 		}
 		Token ret = new Token(none, -1, false, "");
 		if (!eof) {
-			String str;
+			String str = "";
 			if (chr >= '0' && chr <= '9') {
 				ret = readNumber();
 			}
@@ -249,11 +249,16 @@ public class Scanner extends AbstractCompiler{
 					ret.code = offset;
 				} else {
 					ret.code = ident;
-					ret.str = str;
 				}
 
 			}
+			if(ret.code == ident)
+				ret.str = str;
+			else
+				ret.str = AbstractCompiler.str[ret.code];
 		}
+
+
 		return ret;
 	}
 	
