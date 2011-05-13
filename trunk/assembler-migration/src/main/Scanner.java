@@ -254,6 +254,8 @@ public class Scanner extends AbstractCompiler{
 			}
 			if(ret.code == ident)
 				ret.str = str;
+			else if(ret.code == number)
+				ret.str = Integer.toString(ret.val);
 			else
 				ret.str = AbstractCompiler.str[ret.code];
 		}
