@@ -60,8 +60,7 @@ public class Scanner extends AbstractCompiler{
 			hex = true;
 			read();
 		}
-		Token ret = new Token(number, Integer.parseInt(num), hex, num);
-		return ret;
+		return new Token(number, Integer.parseInt(num), hex, num);
 	}
 
 	private void readComment() throws Exception {
@@ -83,9 +82,8 @@ public class Scanner extends AbstractCompiler{
 		if (!eof) {
 			String str = "";
 			if (chr >= '0' && chr <= '9') {
-				ret = readNumber();
-			}
-			else if (chr == ',') {
+				return readNumber();
+			} else if (chr == ',') {
 				ret.code = comma;
 				read();
 			} else if (chr == ':') {
@@ -252,12 +250,11 @@ public class Scanner extends AbstractCompiler{
 				}
 
 			}
-			if(ret.code == ident)
+			if(ret.code == ident) {
 				ret.str = str;
-			else if(ret.code == number)
-				ret.str = Integer.toString(ret.val);
-			else
+			} else {
 				ret.str = AbstractCompiler.str[ret.code];
+			}	
 		}
 
 
