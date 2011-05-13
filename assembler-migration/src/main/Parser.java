@@ -467,6 +467,7 @@ public class Parser extends AbstractCompiler {
 			} else { // db or dw variable or const
 				insert(arg2.str, ";\n");
 			}
+			setFlags(arg1);
 		}
 	}
 	
@@ -641,52 +642,51 @@ public class Parser extends AbstractCompiler {
 		case ja:
 			check(ja);
 			arg = Argument();
-			insert("IF flag_c = 0 AND flag_z = 0 THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_c = 0 AND flag_z = 0 THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jae:
 			check(jae);
 			arg = Argument();
-			insert("IF flag_c = 0 THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_c = 0 THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jb:
 			check(jb);
 			arg = Argument();
-			insert("IF flag_c = 1 THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_c = 1 THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jbe:
 			check(jbe);
 			arg = Argument();
-			insert("IF flag_c = 1 AND flag_z = 1 THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_c = 1 AND flag_z = 1 THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jg:
 			check(jg);
 			arg = Argument();
-			insert("IF flag_z = 0 AND flag_s = flag_o THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_z = 0 AND flag_s = flag_o THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jge:
 			check(jge);
 			arg = Argument();
-			insert("IF flag_s = flag_o THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_s = flag_o THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jl:
 			check(jl);
 			arg = Argument();
-			insert("IF flag_s <> flag_o THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_s <> flag_o THEN CALL ", arg.str, " FI; \n");
 			break;
 		case jle:
 			check(jle);
 			arg = Argument();
-			insert("IF flag_z = 1 OR flag_s <> flag_o THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_z = 1 OR flag_s <> flag_o THEN CALL ", arg.str, " FI; \n");
 			break;
 		case je:
 			check(je);
 			arg = Argument();
-			insert("IF flag_z = 1 THEN CALL", arg.str, "FI; \n");
+			insert("IF flag_z = 1 THEN CALL ", arg.str, " FI; \n");
 			break;
 		default:
 			throw new IllegalArgumentException();
 		}
-		Argument();
 	}
 
 	private Token Argument() throws Exception {
