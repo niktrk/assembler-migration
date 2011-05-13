@@ -473,13 +473,13 @@ public class Parser extends AbstractCompiler {
 	
 	private void setResult(Token arg){
 		if (doubleByte.get(arg.code)) {
-			insert(getXRegister(arg.code), " := temp \n");
+			insert(getXRegister(arg.code), " := temp; \n");
 		} else if (lowByte.get(arg.code)) {
 			insert(getXRegister(arg.code), " := (", getXRegister(arg.code),
-					" DIV 256)*256 + temp \n");
+					" DIV 256)*256 + temp; \n");
 		} else if (highByte.get(arg.code)) {
 			insert(getXRegister(arg.code), ":= (", getXRegister(arg.code),
-					" MOD 256) + temp*256 \n");
+					" MOD 256) + temp*256; \n");
 		}
 	}
 
@@ -530,7 +530,7 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void mov(Token arg1, Token arg2) throws Exception {
-		if (arg2.code == atdata && arg2.code == offset) {
+		if (arg2.code == atdata || arg2.code == offset) {
 			return;
 		}
 
@@ -597,6 +597,12 @@ public class Parser extends AbstractCompiler {
 			break;
 		case loop:
 			check(loop);
+			arg = Argument();
+			insert("temp := cx; \n");
+			insert("temp := temp - 1; \n");
+			setFlags(new Token(cx, str[cx]));
+			setResult(new Token(cx, str[cx]));
+			insert("IF flag_z = 0 THEN\n CALL ", arg.str," \nFI;\n");
 			break;
 		case push:
 			check(push);
