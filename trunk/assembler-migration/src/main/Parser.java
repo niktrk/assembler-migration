@@ -25,7 +25,6 @@ public class Parser extends AbstractCompiler {
 		oneArgComm.set(inc);
 		oneArgComm.set(dec);
 		oneArgComm.set(call);
-		oneArgComm.set(not);
 		oneArgComm.set(jmp);
 		oneArgComm.set(ja);
 		oneArgComm.set(jae);
@@ -36,6 +35,7 @@ public class Parser extends AbstractCompiler {
 		oneArgComm.set(jl);
 		oneArgComm.set(jle);
 		oneArgComm.set(je);
+		oneArgComm.set(neg);
 
 		twoArgComm = new BitSet();
 		twoArgComm.set(mov);
@@ -45,9 +45,8 @@ public class Parser extends AbstractCompiler {
 		twoArgComm.set(sub);
 		twoArgComm.set(mul);
 		twoArgComm.set(div);
-		twoArgComm.set(and);
-		twoArgComm.set(or);
-		twoArgComm.set(xor);
+		twoArgComm.set(shl);
+		twoArgComm.set(shr);
 
 		registers = new BitSet();
 		registers.set(ax);
@@ -390,14 +389,17 @@ public class Parser extends AbstractCompiler {
 			arguments = getArguments();
 			div(arguments[0], arguments[1]);
 			break;
-		case and:
-			check(and);
+		case shl:
+			check(shl);
+			arguments = getArguments();
+			int arg2Val = (int) Math.pow(2d, (double) arguments[1].val);
+			mul(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
 			break;
-		case or:
-			check(or);
-			break;
-		case xor:
-			check(xor);
+		case shr:
+			check(shr);
+			arguments = getArguments();
+			arg2Val = (int) Math.pow(2d, (double) arguments[1].val);
+			div(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
 			break;
 		default:
 			throw new IllegalArgumentException();
@@ -639,8 +641,10 @@ public class Parser extends AbstractCompiler {
 			arg = Argument();
 			insert(arg.str, "(); \n");
 			break;
-		case not:
-			check(not);
+		case neg:
+			check(neg);
+			arg = Argument();
+			sub(new Token(number, 0, "0"), arg);
 			break;
 		case jmp:
 			check(jmp);
