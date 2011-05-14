@@ -172,10 +172,12 @@ public class Scanner extends AbstractCompiler {
 					ret.code = dec;
 				} else if (str.equals("call")) {
 					ret.code = call;
-				} else if (str.equals("not")) {
-					ret.code = not;
 				} else if (str.equals("jmp")) {
 					ret.code = jmp;
+				} else if (str.equals("ja")) {
+					ret.code = ja;
+				} else if (str.equals("jae")) {
+					ret.code = jae;
 				} else if (str.equals("jb")) {
 					ret.code = jb;
 				} else if (str.equals("jbe")) {
@@ -204,12 +206,12 @@ public class Scanner extends AbstractCompiler {
 					ret.code = mul;
 				} else if (str.equals("div")) {
 					ret.code = div;
-				} else if (str.equals("and")) {
-					ret.code = and;
-				} else if (str.equals("or")) {
-					ret.code = or;
-				} else if (str.equals("xor")) {
-					ret.code = xor;
+				} else if (str.equals("neg")) {
+					ret.code = neg;
+				} else if (str.equals("shl")) {
+					ret.code = shl;
+				} else if (str.equals("shr")) {
+					ret.code = shr;
 				} else if (str.equals("ax")) {
 					ret.code = ax;
 				} else if (str.equals("ah")) {

@@ -1,16 +1,20 @@
-.model small
-.code
-mov ax,12
-mov bx,8
+.Model Small
+
+.Code
+MOV AX,12
+MOV BX,8
+
 compare:
-cmp ax,bx
-je theend
-ja greater
-sub bx,ax
-jmp compare
+CMP AX,BX
+JE theend
+JA greater
+SUB BX,AX
+JMP compare
+
 greater:
-sub ax,bx
-jmp compare
+SUB AX,BX
+JMP compare
+
 theend:
-nop
-end
+
+End
