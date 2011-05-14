@@ -4,12 +4,12 @@ package main;
  * Main application class.
  * 
  * @author Nikola Trkulja
- *
+ * 
  */
 public class App {
 
-	public static void main(String[] args) throws Exception{
-		Scanner sc = new Scanner("src/asm/loop.asm");
+	public static void main(String[] args) throws Exception {
+		Scanner sc = new Scanner("src/asm/donny.asm");
 		Parser p = new Parser(sc);
 		System.out.println(p.parse());
 	}

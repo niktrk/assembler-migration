@@ -5,8 +5,7 @@ public abstract class AbstractCompiler {
 	protected static final int
 	// terminals
 			none = 0,
-			ident = 1,
-			number = 2,
+			ident = 1, number = 2,
 			comma = 3,
 			colon = 4,
 			lbrack = 5,
@@ -42,9 +41,7 @@ public abstract class AbstractCompiler {
 			endm = 25,
 
 			// OneArgStat
-			interr = 26, loop = 27, push = 28,
-			pop = 29,
-			inc = 30,
+			interr = 26, loop = 27, push = 28, pop = 29, inc = 30,
 			dec = 31,
 			call = 32,
 			not = 33,
@@ -56,30 +53,32 @@ public abstract class AbstractCompiler {
 			je = 43,
 
 			// TwoArgStat
-			mov = 44, xchg = 45, cmp = 46, add = 47, sub = 48,
-			mul = 49,
-			div = 50, and = 51, or = 52,
+			mov = 44, xchg = 45, cmp = 46, add = 47, sub = 48, mul = 49, div = 50,
+			and = 51,
+			or = 52,
 			xor = 53,
 
 			// Registers
-			ax = 54, ah = 55, al = 56, bx = 57, bh = 58, bl = 59,
-			cx = 60,
-			ch = 61, cl = 62, dx = 63, dh = 64, dl = 65, si = 66,
-			di = 67,
-			bp = 68, sp = 69, cs = 70, ds = 71, ss = 72, es = 73,
+			ax = 54, ah = 55, al = 56, bx = 57, bh = 58, bl = 59, cx = 60, ch = 61,
+			cl = 62,
+			dx = 63, dh = 64, dl = 65, si = 66, di = 67, bp = 68, sp = 69, cs = 70,
+			ds = 71,
+			ss = 72, es = 73,
 
 			// other
 			atdata = 74, // @data
-			offset = 75;
+			offset = 75,
+
+			// indexing
+			minus = 76, plus = 77;
 
 	protected static final String[] str = { "none", "ident", "number", "comma", "colon", "lbrack",
-			"rbrack", "string", "title", "model", "stack", "data", "code",
-			"end", "small", "compact", "medium", "large", "db", "dw", "proc",
-			"far", "ret", "endp", "macro", "endm", "interr", "loop", "push",
-			"pop", "inc", "dec", "call", "not", "jmp", "ja", "jae", "jb",
-			"jbe", "jg", "jge", "jl", "jle", "je", "mov", "xchg", "cmp", "add",
-			"sub", "mul", "div", "and", "or", "xor", "ax", "ah", "al", "bx",
-			"bh", "bl", "cx", "ch", "cl", "dx", "dh", "dl", "si", "di", "bp",
-			"sp", "cs", "ds", "ss", "es", "atdata", "offset" };
+			"rbrack", "string", "title", "model", "stack", "data", "code", "end", "small",
+			"compact", "medium", "large", "db", "dw", "proc", "far", "ret", "endp", "macro",
+			"endm", "interr", "loop", "push", "pop", "inc", "dec", "call", "not", "jmp", "ja",
+			"jae", "jb", "jbe", "jg", "jge", "jl", "jle", "je", "mov", "xchg", "cmp", "add", "sub",
+			"mul", "div", "and", "or", "xor", "ax", "ah", "al", "bx", "bh", "bl", "cx", "ch", "cl",
+			"dx", "dh", "dl", "si", "di", "bp", "sp", "cs", "ds", "ss", "es", "atdata", "offset",
+			"-", "+" };
 
 }
