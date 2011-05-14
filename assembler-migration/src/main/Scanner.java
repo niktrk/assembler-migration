@@ -37,7 +37,7 @@ public class Scanner extends AbstractCompiler {
 			read();
 		}
 		read();
-		return new Token(string, 0, false, str);
+		return new Token(string, 0, str);
 	}
 
 	private String readName() throws Exception {
@@ -52,16 +52,18 @@ public class Scanner extends AbstractCompiler {
 
 	private Token readNumber() throws Exception {
 		String num = "";
-		boolean hex = false;
-		while (chr >= '0' && chr <= '9' && !eof) {
+		int radix = 10;
+		while ((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f')
+				|| (chr >= 'A' && chr <= 'F') && !eof) {
 			num += chr;
 			read();
 		}
 		if (chr == 'h' || chr == 'H') {
-			hex = true;
+			radix = 16;
 			read();
 		}
-		return new Token(number, Integer.parseInt(num), hex, num);
+		Integer value = Integer.parseInt(num, radix);
+		return new Token(number, value.intValue(), value.toString());
 	}
 
 	private void readComment() throws Exception {
@@ -80,7 +82,7 @@ public class Scanner extends AbstractCompiler {
 		if (chr == ';') {
 			readComment();
 		}
-		Token ret = new Token(none, -1, false, "");
+		Token ret = new Token(none, -1, "");
 		if (!eof) {
 			String str = "";
 			if (chr >= '0' && chr <= '9') {
