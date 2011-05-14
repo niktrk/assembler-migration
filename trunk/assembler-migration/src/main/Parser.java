@@ -587,10 +587,13 @@ public class Parser extends AbstractCompiler {
 		case interr:
 			check(interr);
 			arg = Argument();
-			if (arg.code == number && arg.val == 21 && arg.hex) {
+			if (arg.code == number && arg.val == 33) { // 33 == 21h
 				insert("temp := ax DIV 256; \n");
-				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \nFI; \n");
-				// NIJE GOTOVO NI BLIZU!
+				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \n");
+
+				// mislio sam da napravim prekid programa ali ne znam kako to da uradim u wslu, ovaj
+				// exit(n) je samo za petlje
+				// insert("ELSIF temp = 76 THEN \n EXIT(1) \n FI; \n"); // 4c == 76
 			}
 			break;
 		case loop:
