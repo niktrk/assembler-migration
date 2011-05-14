@@ -13,8 +13,7 @@ public class Parser extends AbstractCompiler {
 	private String buffer;
 	private boolean inProc = false;
 
-	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte,
-			doubleByte, singleByte;
+	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -105,42 +104,42 @@ public class Parser extends AbstractCompiler {
 	private String getByteRegister(int code) {
 		if (lowByte.get(code)) {
 			return str[code].charAt(0) + "x MOD 256";
-		}
-		if (highByte.get(code)) {
+		} else if (highByte.get(code)) {
 			return str[code].charAt(0) + "x DIV 256";
 		}
 		return "";
 	}
 
 	private void check(int... code) throws Exception {
-		boolean in = false;
 		for (int i = 0; i < code.length; i++) {
-			if (curr.code == code[i])
-				in = true;
+			if (curr.code == code[i]) {
+				curr = la;
+				la = sc.next();
+				return;
+			}
 		}
-		if (in) {
-			curr = la;
-			la = sc.next();
-		} else {
-			System.out.println("Kurac!");
-			System.exit(0);
-		}
+		// error
+		System.out.println("Kurac!");
+		System.exit(0);
 	}
 
 	public String parse() throws Exception {
 		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
-		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, \n"
-				+ " flag_c := 0, \n" + " ax := 0, "
-				+ " bx:= 0, overflow:= 0, \n" + " cx:= 0,"
-				+ " dx:= 0, temp := 0, \n"
+		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, \n"
+				+ " bx:= 0, overflow:= 0, cx:= 0, dx:= 0, temp := 0, \n"
 				+ " si:= 0, di:= 0, bp:= 0, sp:= 0, \n"
-				+ " cs:= 0, ds:= 0, ss:= 0," + " es:= 0 \n _decl_";
+				+ " cs:= 0, ds:= 0, ss:= 0, es:= 0 \n _decl_";
 
 		buffer = template.replace("_decl_", declaration);
 		Program();
 		buffer = buffer.replace("_decl_", "");
 		buffer = buffer.replace("_body_", "");
 		buffer = buffer.replace("_proc_", "");
+		// temporary fix, I hope :)
+		buffer = buffer.replace("; \nEND", "\nEND");
+		buffer = buffer.replace(";\n END", "\nEND");
+		buffer = buffer.replace("; \n END", "\nEND");
+		buffer = buffer.replace(";\nEND", "\nEND");
 
 		return buffer;
 	}
@@ -166,8 +165,9 @@ public class Parser extends AbstractCompiler {
 	private void insert(String... s) {
 		if (inProc) {
 			insIntoProc(s);
-		} else
+		} else {
 			insIntoBody(s);
+		}
 	}
 
 	private void Program() throws Exception {
@@ -209,8 +209,9 @@ public class Parser extends AbstractCompiler {
 					insIntoDecl(", ");
 					Value();
 				}
-				if (array)
+				if (array) {
 					insIntoDecl(" >");
+				}
 
 			}
 		}
@@ -238,10 +239,11 @@ public class Parser extends AbstractCompiler {
 			insIntoProc("WHERE \n");
 			inProc = true;
 			while (curr.code == ident && (la.code == proc || la.code == macro)) {
-				if (la.code == proc)
+				if (la.code == proc) {
 					Procedure();
-				else
+				} else {
 					Macro();
+				}
 			}
 			insIntoProc("END \n");
 		}
@@ -251,14 +253,14 @@ public class Parser extends AbstractCompiler {
 			insIntoBody("ACTIONS beg: \n");
 			insIntoBody("beg== \n");
 			inProc = false;
-			while (curr.code == ident && la.code == colon
-					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+			while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code)
+					|| twoArgComm.get(curr.code)) {
 
 				if (curr.code == ident && la.code == colon) {
 					Label();
-				} else if (oneArgComm.get(curr.code)
-						|| twoArgComm.get(curr.code))
+				} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 					Statement();
+				}
 
 			}
 			insIntoBody("END\n");
@@ -282,13 +284,14 @@ public class Parser extends AbstractCompiler {
 		insIntoProc("ACTIONS beg: \n");
 		insIntoProc("beg== \n");
 
-		while (curr.code == ident && la.code == colon
-				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+		while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code)
+				|| twoArgComm.get(curr.code)) {
 
 			if (curr.code == ident && la.code == colon) {
 				Label();
-			} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code))
+			} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 				Statement();
+			}
 
 		}
 		check(endm);
@@ -308,8 +311,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == far) {
 			check(far);
 		}
-		while (curr.code == ident || oneArgComm.get(curr.code)
-				|| twoArgComm.get(curr.code)) {
+		while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 			if (curr.code == ident) {
 				Label();
 			} else {
@@ -470,8 +472,8 @@ public class Parser extends AbstractCompiler {
 			setFlags(arg1);
 		}
 	}
-	
-	private void setResult(Token arg){
+
+	private void setResult(Token arg) {
 		if (doubleByte.get(arg.code)) {
 			insert(getXRegister(arg.code), " := temp; \n");
 		} else if (lowByte.get(arg.code)) {
@@ -485,16 +487,14 @@ public class Parser extends AbstractCompiler {
 
 	private void generateOverflowCheck(Token arg) {
 		String overflow;
-		if(doubleByte.get(arg.code)){
-			 overflow = "65536";
-		}
-		else{
+		if (doubleByte.get(arg.code)) {
+			overflow = "65536";
+		} else {
 			overflow = "256";
 		}
 		insert("overflow := ", overflow, ";\n");
-		insert("IF  temp  >= ", overflow, " THEN\n temp :=  temp", " MOD ",
-				overflow, ";\n ");
-		insert("flag_o :=1;\n flag_c := 1\nELSE\n flag_o :=0;\n flag_c := 0;\nFI;\n");
+		insert("IF  temp  >= ", overflow, " THEN\n temp :=  temp", " MOD ", overflow, ";\n ");
+		insert("flag_o := 1;\n flag_c := 1\nELSE\n flag_o := 0;\n flag_c := 0;\nFI;\n");
 
 	}
 
@@ -525,8 +525,7 @@ public class Parser extends AbstractCompiler {
 		} else {
 			arg2Name = arg2.str;
 		}
-		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ",
-				arg1Name, " >;\n");
+		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ", arg1Name, " >;\n");
 	}
 
 	private void mov(Token arg1, Token arg2) throws Exception {
@@ -545,8 +544,7 @@ public class Parser extends AbstractCompiler {
 
 		} else if (highByte.get(arg1.code)) {
 
-			insert(getXRegister(arg1.code), " := ", "(",
-					getXRegister(arg1.code), " MOD 256) + ");
+			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code), " MOD 256) + ");
 			if (highByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " DIV 256) * 256;\n");
 			} else if (lowByte.get(arg2.code)) {
@@ -557,8 +555,8 @@ public class Parser extends AbstractCompiler {
 
 		} else if (lowByte.get(arg1.code)) {
 
-			insert(getXRegister(arg1.code), " := ", "(",
-					getXRegister(arg1.code), " DIV 256) * 256 + ");
+			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code),
+					" DIV 256) * 256 + ");
 			if (lowByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " MOD 256);\n");
 			} else if (highByte.get(arg2.code)) {
@@ -589,10 +587,10 @@ public class Parser extends AbstractCompiler {
 		case interr:
 			check(interr);
 			arg = Argument();
-			if(arg.code == number && arg.val == 21 && arg.hex){
+			if (arg.code == number && arg.val == 21 && arg.hex) {
 				insert("temp := ax DIV 256; \n");
-				insert("IF temp = 1 THEN PRINT ");
-				//NIJE GOTOVO NI BLIZU!
+				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \nFI; \n");
+				// NIJE GOTOVO NI BLIZU!
 			}
 			break;
 		case loop:
@@ -602,7 +600,7 @@ public class Parser extends AbstractCompiler {
 			insert("temp := temp - 1; \n");
 			setFlags(new Token(cx, str[cx]));
 			setResult(new Token(cx, str[cx]));
-			insert("IF flag_z = 0 THEN\n CALL ", arg.str," \nFI;\n");
+			insert("IF flag_z = 0 THEN\n CALL ", arg.str, " \nFI;\n");
 			break;
 		case push:
 			check(push);
@@ -700,15 +698,31 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == ident) {
 			ret = curr;
 			check(ident);
+			if (curr.code == lbrack) {
+				check(lbrack);
+				ret.str += "[";
+				Token arg;
+				while (true) {
+					if (curr.code == number) {
+						arg = Number();
+					} else {
+						arg = Register();
+					}
+					ret.str += arg.str;
+					if (curr.code == plus || curr.code == minus) {
+						ret.str += curr.str;
+						check(plus, minus);
+					} else {
+						break;
+					}
+				}
+				check(rbrack);
+				ret.str += " + 1]";
+			}
 		} else if (curr.code == number) {
-			ret = curr;
-			check(number);
+			ret = Number();
 		} else if (registers.get(curr.code)) {
 			ret = Register();
-		} else if (curr.code == lbrack) {
-			check(lbrack);
-			ret = Register();
-			check(rbrack);
 		} else if (curr.code == atdata) {
 			ret = curr;
 			check(atdata);
@@ -717,6 +731,12 @@ public class Parser extends AbstractCompiler {
 			check(offset);
 			check(ident);
 		}
+		return ret;
+	}
+
+	private Token Number() throws Exception {
+		Token ret = curr;
+		check(number);
 		return ret;
 	}
 

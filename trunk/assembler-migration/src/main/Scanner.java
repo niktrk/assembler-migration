@@ -3,36 +3,36 @@ package main;
 import java.io.BufferedReader;
 import java.io.FileReader;
 
-public class Scanner extends AbstractCompiler{
+public class Scanner extends AbstractCompiler {
 
 	public BufferedReader sc;
 	private char chr;
 	private boolean eof = false;
 
 	public Scanner(String file) {
-			try {
-				sc = new BufferedReader(new FileReader(file));
-				chr = (char) sc.read();
-			} catch (Exception e) {
-				System.out.println("File " + file + " doesn't exist." );
-				System.exit(0);
-			}
-
+		try {
+			sc = new BufferedReader(new FileReader(file));
+			chr = (char) sc.read();
+		} catch (Exception e) {
+			System.out.println("File " + file + " doesn't exist.");
+			System.exit(0);
+		}
 
 	}
 
 	private void read() throws Exception {
 		int i = sc.read();
-		if (i == -1)
+		if (i == -1) {
 			eof = true;
-		else
+		} else {
 			chr = (char) i;
+		}
 	}
-	
-	private Token readString() throws Exception{
+
+	private Token readString() throws Exception {
 		String str = "";
 		read();
-		while(chr != '\''){
+		while (chr != '\'') {
 			str += chr;
 			read();
 		}
@@ -42,7 +42,8 @@ public class Scanner extends AbstractCompiler{
 
 	private String readName() throws Exception {
 		String ret = "";
-		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' ||chr >= '0' && chr <= '9')&& !eof) {
+		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9')
+				&& !eof) {
 			ret += chr;
 			read();
 		}
@@ -56,7 +57,7 @@ public class Scanner extends AbstractCompiler{
 			num += chr;
 			read();
 		}
-		if (chr == 'h' || chr == 'H'){
+		if (chr == 'h' || chr == 'H') {
 			hex = true;
 			read();
 		}
@@ -67,12 +68,13 @@ public class Scanner extends AbstractCompiler{
 		while (chr != '\n' && !eof) {
 			read();
 		}
-		if(!eof)
+		if (!eof) {
 			read();
+		}
 	}
 
 	public Token next() throws Exception {
-		while(chr <= ' ' && !eof){
+		while (chr <= ' ' && !eof) {
 			read();
 		}
 		if (chr == ';') {
@@ -89,9 +91,7 @@ public class Scanner extends AbstractCompiler{
 			} else if (chr == ':') {
 				ret.code = colon;
 				read();
-			}
-
-			else if (chr == '[') {
+			} else if (chr == '[') {
 				ret.code = lbrack;
 				read();
 			} else if (chr == ']') {
@@ -99,6 +99,12 @@ public class Scanner extends AbstractCompiler{
 				read();
 			} else if (chr == '\'') {
 				return readString();
+			} else if (chr == '+') {
+				ret.code = plus;
+				read();
+			} else if (chr == '-') {
+				ret.code = minus;
+				read();
 			} else if (chr == '.') {
 				read();
 				str = readName();
@@ -115,11 +121,10 @@ public class Scanner extends AbstractCompiler{
 				}
 			} else if (chr == '@') {
 				read();
-				if (readName().equals("data"))
+				if (readName().equals("data")) {
 					ret.code = atdata;
-			}
-
-			else if (chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z') {
+				}
+			} else if (chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z') {
 				str = readName();
 				if (str.equals("title")) {
 					ret.code = title;
@@ -250,15 +255,14 @@ public class Scanner extends AbstractCompiler{
 				}
 
 			}
-			if(ret.code == ident) {
+			if (ret.code == ident) {
 				ret.str = str;
 			} else {
 				ret.str = AbstractCompiler.str[ret.code];
-			}	
+			}
 		}
-
 
 		return ret;
 	}
-	
+
 }
