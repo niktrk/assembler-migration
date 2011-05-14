@@ -192,9 +192,10 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void Data() throws Exception {
-		boolean array = false;
+		boolean array;
 		check(data);
 		while (curr.code == ident) {
+			array = false;
 			insIntoDecl(", ", curr.str, " := ");
 			check(ident);
 			check(db, dw);
@@ -589,7 +590,7 @@ public class Parser extends AbstractCompiler {
 			arg = Argument();
 			if (arg.code == number && arg.val == 33) { // 33 == 21h
 				insert("temp := ax DIV 256; \n");
-				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \n");
+				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \n FI; \n");
 
 				// mislio sam da napravim prekid programa ali ne znam kako to da uradim u wslu, ovaj
 				// exit(n) je samo za petlje
