@@ -496,7 +496,7 @@ public class Parser extends AbstractCompiler {
 			overflow = "256";
 		}
 		insert("overflow := ", overflow, ";\n");
-		insert("IF  temp  >= ", overflow, " THEN\n temp :=  temp", " MOD ", overflow, ";\n ");
+		insert("IF  temp  >= ", overflow, " THEN\n temp := temp", " MOD ", overflow, ";\n ");
 		insert("flag_o := 1;\n flag_c := 1\nELSE\n flag_o := 0;\n flag_c := 0;\nFI;\n");
 
 	}
@@ -592,11 +592,8 @@ public class Parser extends AbstractCompiler {
 			arg = Argument();
 			if (arg.code == number && arg.val == 33) { // 33 == 21h
 				insert("temp := ax DIV 256; \n");
-				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \n FI; \n");
-
-				// mislio sam da napravim prekid programa ali ne znam kako to da uradim u wslu, ovaj
-				// exit(n) je samo za petlje
-				// insert("ELSIF temp = 76 THEN \n EXIT(1) \n FI; \n"); // 4c == 76
+				insert("IF temp = 2 THEN \n PRINT(@ASCII_To_String(dx MOD 256)) \n");
+				insert("ELSIF temp = 76 THEN \n CALL Z \n FI; \n"); // 4c == 76
 			}
 			break;
 		case loop:

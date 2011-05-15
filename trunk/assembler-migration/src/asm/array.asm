@@ -20,7 +20,7 @@ INT 21h
 
 
 ;end program
-MOV AH,4Ch
+MOV AX,4C00H
 INT 21h
 
 end
