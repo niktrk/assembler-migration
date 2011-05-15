@@ -16,5 +16,7 @@ SUB AX,BX
 JMP compare
 
 theend:
+MOV AX,4C00H
+INT 21h
 
 End

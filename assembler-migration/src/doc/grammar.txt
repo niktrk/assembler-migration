@@ -31,7 +31,5 @@ Register = "ax" | "bx" | "cx" | "dx" ...
 	
 	Zero - postavlja se kada je rezultat jednak nuli.
 	
-	Parity Flag - postavlja se kada u rezultatu postoji paran broj bitova koji su 1, a inače se briše. Često se koristi u komunikacijama.
-	
 	Carry Flag - postavlja se ako postoji prenos iz najvišeg bita rezultata, ili “pozajmica” u njega. Koristi se prilikom računanja sa vrednostima koje se prostiru na više reči.
 
