@@ -1,6 +1,8 @@
 package main;
 
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Igor i ostali
@@ -14,6 +16,7 @@ public class Parser extends AbstractCompiler {
 	private boolean inProc = false;
 
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
+	Map<String, Integer> variableSize;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -36,6 +39,8 @@ public class Parser extends AbstractCompiler {
 		oneArgComm.set(jle);
 		oneArgComm.set(je);
 		oneArgComm.set(neg);
+		oneArgComm.set(mul);
+		oneArgComm.set(div);
 
 		twoArgComm = new BitSet();
 		twoArgComm.set(mov);
@@ -43,8 +48,6 @@ public class Parser extends AbstractCompiler {
 		twoArgComm.set(cmp);
 		twoArgComm.set(add);
 		twoArgComm.set(sub);
-		twoArgComm.set(mul);
-		twoArgComm.set(div);
 		twoArgComm.set(shl);
 		twoArgComm.set(shr);
 
@@ -91,6 +94,8 @@ public class Parser extends AbstractCompiler {
 		doubleByte.xor(highByte);
 
 		buffer = new String();
+
+		variableSize = new HashMap<String, Integer>();
 
 		curr = sc.next();
 		la = sc.next();
@@ -196,6 +201,11 @@ public class Parser extends AbstractCompiler {
 		while (curr.code == ident) {
 			array = false;
 			insIntoDecl(", ", curr.str, " := ");
+			if (la.code == db) {
+				variableSize.put(curr.str, db);
+			} else if (la.code == dw) {
+				variableSize.put(curr.str, dw);
+			}
 			check(ident);
 			check(db, dw);
 			if (curr.code == number || curr.code == string) {
@@ -379,27 +389,17 @@ public class Parser extends AbstractCompiler {
 			arguments = getArguments();
 			sub(arguments[0], arguments[1]);
 			break;
-		case mul:
-			check(mul);
-			arguments = getArguments();
-			mul(arguments[0], arguments[1]);
-			break;
-		case div:
-			check(div);
-			arguments = getArguments();
-			div(arguments[0], arguments[1]);
-			break;
 		case shl:
 			check(shl);
 			arguments = getArguments();
-			int arg2Val = (int) Math.pow(2d, (double) arguments[1].val);
-			mul(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
+			int arg2Val = (1 << arguments[1].val);
+			// mul(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
 			break;
 		case shr:
 			check(shr);
 			arguments = getArguments();
-			arg2Val = (int) Math.pow(2d, (double) arguments[1].val);
-			div(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
+			arg2Val = (1 << arguments[1].val);
+			// div(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
 			break;
 		default:
 			throw new IllegalArgumentException();
@@ -420,14 +420,12 @@ public class Parser extends AbstractCompiler {
 		setResult(arg1);
 	}
 
-	private void mul(Token arg1, Token arg2) {
-		arithmInstruct(arg1, arg2, "*");
-		setResult(arg1);
+	private void mul(Token arg1) {
+
 	}
 
-	private void div(Token arg1, Token arg2) {
-		arithmInstruct(arg1, arg2, "/");
-		setResult(arg1);
+	private void div(Token arg1) {
+
 	}
 
 	private void arithmInstruct(Token arg1, Token arg2, String op) {
@@ -490,23 +488,28 @@ public class Parser extends AbstractCompiler {
 
 	private void generateOverflowCheck(Token arg) {
 		String overflow;
+		// FIXME what to do in case of dw or db variable
+		// FIXME what in case of underflow
 		if (doubleByte.get(arg.code)) {
 			overflow = "65536";
 		} else {
 			overflow = "256";
 		}
 		insert("overflow := ", overflow, ";\n");
-		insert("IF  temp  >= ", overflow, " THEN\n temp := temp", " MOD ", overflow, ";\n ");
-		insert("flag_o := 1;\n flag_c := 1\nELSE\n flag_o := 0;\n flag_c := 0;\nFI;\n");
-
+		insert("IF  temp  >= ", overflow, " THEN\n temp := temp", " MOD ", overflow, "; \n ");
+		insert("flag_o := 1 \n ELSE \n flag_o := 0 \n FI; \n");
 	}
 
 	private void generateZeroCheck() {
-		insert("IF temp = 0 THEN\n flag_z :=1\nELSE\n flag_z :=0;\nFI;\n");
+		insert("IF temp = 0 THEN\n flag_z :=1 \n ELSE \n flag_z :=0; \n FI; \n");
 	}
 
 	private void generateSignCheck() {
 		insert("IF temp < 0 THEN\n flag_s :=1\nELSE\n flag_s :=0;\nFI;\n");
+	}
+
+	private void generateCarryCheck() {
+		insert("flag_o := 1;\n flag_c := 1\nELSE\n flag_o := 0;\n flag_c := 0;\nFI;\n");
 	}
 
 	private void setFlags(Token arg) {
@@ -642,6 +645,16 @@ public class Parser extends AbstractCompiler {
 			check(neg);
 			arg = Argument();
 			sub(new Token(number, 0, "0"), arg);
+			break;
+		case mul:
+			check(mul);
+			arg = Argument();
+			// mul(arguments[0], arguments[1]);
+			break;
+		case div:
+			check(div);
+			arg = Argument();
+			// div(arguments[0], arguments[1]);
 			break;
 		case jmp:
 			check(jmp);
