@@ -1,10 +1,14 @@
 package main;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.print.DocFlavor.BYTE_ARRAY;
+
+import com.sun.org.apache.bcel.internal.generic.GETSTATIC;
 
 /**
  * @author Igor i ostali
@@ -20,6 +24,7 @@ public class Parser extends AbstractCompiler {
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte,
 			doubleByte, singleByte;
 	Map<String, Size> variableSize;
+	Map<String, List<String>> macroParams;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -99,6 +104,7 @@ public class Parser extends AbstractCompiler {
 		buffer = new String();
 
 		variableSize = new HashMap<String, Size>();
+		macroParams = new HashMap<String, List<String>>();
 
 		curr = sc.next();
 		la = sc.next();
@@ -247,7 +253,6 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void Code() throws Exception {
-
 		check(code);
 
 		if (curr.code == ident && (la.code == proc || la.code == macro)) {
@@ -287,16 +292,22 @@ public class Parser extends AbstractCompiler {
 
 	private void Macro() throws Exception {
 		insIntoProc("PROC ", curr.str, "(");
+		String macroName = curr.str;
+		List<String> params = new ArrayList<String>();
 		check(ident);
 		check(macro);
 		if (curr.code == ident && la.code != colon) {
 			insIntoProc(curr.str);
+			params.add(macroName + "." + curr.str);
 			check(ident);
-			while (curr.code == ident && la.code != colon) {
+			while (curr.code == ident && la.code == comma) {
+				check(comma);
 				insIntoProc(",", curr.str);
+				params.add(macroName + "." + curr.str);
 				check(ident);
 			}
 		}
+		macroParams.put(macroName, params);
 		insIntoProc(") ==\n");
 		insIntoProc("ACTIONS beg: \n");
 		insIntoProc("beg== \n");
@@ -356,8 +367,26 @@ public class Parser extends AbstractCompiler {
 	private void Statement() throws Exception {
 		if (oneArgComm.get(curr.code)) {
 			OneArgStatement();
-		} else {
+		} else if(twoArgComm.get(curr.code)){
 			TwoArgStatement();
+		} else if (macroParams.get(curr.str) != null) { //macro
+			String macroName = curr.str;
+			List<String> params = macroParams.get(macroName);
+			check(ident);
+			insert(macroName,"(");
+			for (String param : params) {
+				if (singleByte.get(curr.code)) {
+					insert(getByteRegister(curr.code));
+				} else {
+					insert(curr.str);
+				} 
+				check(ident);
+				if (curr.code == comma) {
+					check(comma);
+					insert(", ");
+				}
+			}
+			insert("); \n");
 		}
 	}
 
@@ -430,7 +459,7 @@ public class Parser extends AbstractCompiler {
 			size = Size.DOUBLE_BYTE;
 			val1 = arg1.str;
 			insert("temp := ", val1, ";\n");
-			insert("temp := temp", operation.getOperator());
+			insert("temp := temp ", operation.getOperator());
 			if (doubleByte.get(arg2.code)) {
 				val2 = arg2.str;
 				insert(val2, ";\n");
@@ -447,7 +476,7 @@ public class Parser extends AbstractCompiler {
 
 		} else if (highByte.get(arg1.code)) {
 			size = Size.BYTE;
-			val1 = getXRegister(arg1.code) + "DIV 256";
+			val1 = getXRegister(arg1.code) + " DIV 256";
 			insert("temp := ", val1, ";\n");
 			insert("temp := temp", operation.getOperator());
 			if (singleByte.get(arg2.code)) {
@@ -466,7 +495,7 @@ public class Parser extends AbstractCompiler {
 
 		} else if (lowByte.get(arg1.code)) {
 			size = Size.BYTE;
-			val1 = getXRegister(arg1.code) + "MOD 256";
+			val1 = getXRegister(arg1.code) + " MOD 256";
 			insert("temp := ", val1, ";\n");
 			insert("temp := temp", operation.getOperator());
 			if (singleByte.get(arg2.code)) {
@@ -534,28 +563,19 @@ public class Parser extends AbstractCompiler {
 
 	private void div(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(arg.str).equals(Size.DOUBLE_BYTE)) {
-			insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, "\n" );
+			insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, "; \n" );
 			insert("IF ",arg.str, " = 0 OR temp >= 65536 THEN \n");
-			insert("CALL Z /n ELSE/n");
-			insert("dx := (dx * 65536 + ax) MOD ", arg.str, "\n" );
+			insert("CALL Z \n ELSE \n");
+			insert("dx := (dx * 65536 + ax) MOD ", arg.str, "; \n" );
 			insert("ax := temp \n FI; \n");
-			setDivFlag(Size.DOUBLE_BYTE);
 		} else { //arg is byte
-			insert("IF ",arg.str, " = 0 OR temp >= 256 THEN \n");
-			insert("CALL Z /n ELSE/n");
 			insert("temp := ax DIV ", arg.str, ";\n");
-			insert("ax := (ax MOD ", arg.str, ") * 256 + (ax MOD 256); \n");
-			insert("ax := (ax DIV 256)*256 + temp");
-			insert("ax := temp \n FI; \n");
-			setDivFlag(Size.BYTE);
+			insert("IF ",arg.str, " = 0 OR temp >= 256 THEN \n");
+			insert("CALL Z \n ELSE \n");
+			insert("ax := (ax MOD ", arg.str, ") * 256 + temp FI; \n");
 		}
 	}
 	
-	private void setDivFlag(Size doubleByte2) {
-		
-		
-	}
-
 	private void mul(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(arg.str).equals(Size.DOUBLE_BYTE)) {
 			arithmeticInstruction(new Token(ax, 0, str[ax]), arg, Operation.MULTIPLICATION);
@@ -623,18 +643,18 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateAddOverflowCheck(String val1, String val2, Size size) {
-		insert("IF ((",val1,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) = ");
-		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) AND ");
-		insert("(temp DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) <> ");
-		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) THEN \n");
+		insert("IF (((",val1,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) = ");
+		insert("(((",val2,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) AND ");
+		insert("((temp DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) <> ");
+		insert("(((",val2,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) THEN \n");
 		insert("flag_o := 1 \n ELSE \n flag_o := 0 \n FI; \n");
 	}
 
 	private void generateSubOverflowCheck(String val1, String val2, Size size) {
-		insert("IF ((",val1,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) <> ");
-		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) AND ");
-		insert("(temp DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) = ");
-		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) THEN \n");
+		insert("IF (((",val1,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) <> ");
+		insert("(((",val2,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) AND ");
+		insert("((temp DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) = ");
+		insert("(((",val2,") DIV 2**", Integer.toString(size.getSize()-1),") MOD 2) THEN \n");
 		insert("flag_o := 1 \n ELSE \n flag_o := 0 \n FI; \n");
 	}
 	
@@ -643,7 +663,7 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateSignCheck(Size size) {
-		insert("IF (temp DIV 2**", Integer.toString(size.getSize()-1),") MOD 2 = 1 \n THEN");
+		insert("IF (temp DIV 2**", Integer.toString(size.getSize()-1),") MOD 2 = 1 \n THEN \n");
 		insert("flag_s :=1 \n ELSE \n flag_s :=0 \n FI; \n ");
 	}
 
@@ -709,10 +729,10 @@ public class Parser extends AbstractCompiler {
 			} else if (lowByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " MOD 256) * 256;\n");
 				
-			} else if(variableSize.get(arg2.str) != null){
+			} else if(variableSize.get(arg2.str) != null){ //db variable
 				insert(arg2.str, " * 256; \n ");
 			}
-			else { // db variable or const
+			else { // const
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				insert(Integer.toString(val), " * 256;\n");
 			}
@@ -917,6 +937,7 @@ public class Parser extends AbstractCompiler {
 
 	private Token Number() throws Exception {
 		Token ret = curr;
+		check(number);
 		return ret;
 	}
 
