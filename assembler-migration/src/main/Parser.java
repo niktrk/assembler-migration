@@ -4,6 +4,8 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.print.DocFlavor.BYTE_ARRAY;
+
 /**
  * @author Igor i ostali
  * @date 2. 5. 2011.
@@ -15,8 +17,9 @@ public class Parser extends AbstractCompiler {
 	private String buffer;
 	private boolean inProc = false;
 
-	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
-	Map<String, Integer> variableSize;
+	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte,
+			doubleByte, singleByte;
+	Map<String, Size> variableSize;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -95,7 +98,7 @@ public class Parser extends AbstractCompiler {
 
 		buffer = new String();
 
-		variableSize = new HashMap<String, Integer>();
+		variableSize = new HashMap<String, Size>();
 
 		curr = sc.next();
 		la = sc.next();
@@ -198,14 +201,16 @@ public class Parser extends AbstractCompiler {
 	private void Data() throws Exception {
 		boolean array;
 		check(data);
+		String varName;
 		while (curr.code == ident) {
 			array = false;
 			insIntoDecl(", ", curr.str, " := ");
 			if (la.code == db) {
-				variableSize.put(curr.str, db);
+				variableSize.put(curr.str, Size.BYTE);
 			} else if (la.code == dw) {
-				variableSize.put(curr.str, dw);
+				variableSize.put(curr.str, Size.DOUBLE_BYTE);
 			}
+			varName = curr.str;
 			check(ident);
 			check(db, dw);
 			if (curr.code == number || curr.code == string) {
@@ -213,11 +218,11 @@ public class Parser extends AbstractCompiler {
 					insIntoDecl("< ");
 					array = true;
 				}
-				Value();
+				Value(varName);
 				while (curr.code == comma) {
 					check(comma);
 					insIntoDecl(", ");
-					Value();
+					Value(varName);
 				}
 				if (array) {
 					insIntoDecl(" >");
@@ -228,9 +233,10 @@ public class Parser extends AbstractCompiler {
 
 	}
 
-	private void Value() throws Exception {
+	private void Value(String varName) throws Exception {
 		if (curr.code == number) {
-			insIntoDecl(Integer.toString(curr.val));
+			insIntoDecl(Integer.toString(toUnsigned(curr.val,
+					variableSize.get(varName))));
 			check(number);
 		} else if (curr.code == string) {
 			insIntoDecl("\"");
@@ -263,12 +269,13 @@ public class Parser extends AbstractCompiler {
 			insIntoBody("ACTIONS beg: \n");
 			insIntoBody("beg== \n");
 			inProc = false;
-			while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code)
-					|| twoArgComm.get(curr.code)) {
+			while (curr.code == ident && la.code == colon
+					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
 				if (curr.code == ident && la.code == colon) {
 					Label();
-				} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+				} else if (oneArgComm.get(curr.code)
+						|| twoArgComm.get(curr.code)) {
 					Statement();
 				}
 
@@ -294,8 +301,8 @@ public class Parser extends AbstractCompiler {
 		insIntoProc("ACTIONS beg: \n");
 		insIntoProc("beg== \n");
 
-		while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code)
-				|| twoArgComm.get(curr.code)) {
+		while (curr.code == ident && la.code == colon
+				|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
 			if (curr.code == ident && la.code == colon) {
 				Label();
@@ -321,7 +328,8 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == far) {
 			check(far);
 		}
-		while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+		while (curr.code == ident || oneArgComm.get(curr.code)
+				|| twoArgComm.get(curr.code)) {
 			if (curr.code == ident) {
 				Label();
 			} else {
@@ -377,101 +385,199 @@ public class Parser extends AbstractCompiler {
 		case cmp:
 			check(cmp);
 			arguments = getArguments();
-			cmp(arguments[0], arguments[1]);
+			arithmeticInstruction(arguments[0], arguments[1], Operation.COMPARE);
 			break;
 		case add:
 			check(add);
 			arguments = getArguments();
-			add(arguments[0], arguments[1]);
+			arithmeticInstruction(arguments[0], arguments[1], Operation.ADDITION);
 			break;
 		case sub:
 			check(sub);
 			arguments = getArguments();
-			sub(arguments[0], arguments[1]);
+			arithmeticInstruction(arguments[0], arguments[1], Operation.SUBTRACTION);
 			break;
 		case shl:
 			check(shl);
 			arguments = getArguments();
 			int arg2Val = (1 << arguments[1].val);
-			// mul(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
+			// mul(arguments[0], new Token(number, arg2Val,
+			// String.valueOf(arg2Val)));
 			break;
 		case shr:
 			check(shr);
 			arguments = getArguments();
 			arg2Val = (1 << arguments[1].val);
-			// div(arguments[0], new Token(number, arg2Val, String.valueOf(arg2Val)));
+			// div(arguments[0], new Token(number, arg2Val,
+			// String.valueOf(arg2Val)));
 			break;
 		default:
 			throw new IllegalArgumentException();
 		}
 	}
 
-	private void cmp(Token arg1, Token arg2) {
-		arithmInstruct(arg1, arg2, "-");
+	private int toUnsigned(int num, Size size) {
+		if (num >= 0) {
+			return num;
+		}
+		return (1 << size.getSize()) + num;
 	}
 
-	private void add(Token arg1, Token arg2) {
-		arithmInstruct(arg1, arg2, "+");
-		setResult(arg1);
-	}
-
-	private void sub(Token arg1, Token arg2) {
-		arithmInstruct(arg1, arg2, "-");
-		setResult(arg1);
-	}
-
-	private void mul(Token arg1) {
-
-	}
-
-	private void div(Token arg1) {
-
-	}
-
-	private void arithmInstruct(Token arg1, Token arg2, String op) {
-		op = " " + op + " ";
+	private void arithmeticInstruction(Token arg1, Token arg2, Operation operation) {
+		String val1, val2;
+		Size size;
 		if (doubleByte.get(arg1.code)) {
-			insert("temp := ", arg1.str, ";\n");
-			insert("temp := temp", op);
+			size = Size.DOUBLE_BYTE;
+			val1 = arg1.str;
+			insert("temp := ", val1, ";\n");
+			insert("temp := temp", operation.getOperator());
 			if (doubleByte.get(arg2.code)) {
-				insert(arg2.str, ";\n");
-			} else { // dw variable or const
-				insert(arg2.str, ";\n");
+				val2 = arg2.str;
+				insert(val2, ";\n");
 			}
-			setFlags(arg1);
+			else if (variableSize.get(arg2.str) != null){//dw
+				val2 = arg2.str;
+				insert(val2, ";\n");				
+			}
+			else { // const
+				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
+				val2 = Integer.toString(val);
+				insert(val2, ";\n");
+			}
 
 		} else if (highByte.get(arg1.code)) {
-			insert("temp := ", getXRegister(arg1.code), " DIV 256;\n");
-			insert("temp := temp", op);
+			size = Size.BYTE;
+			val1 = getXRegister(arg1.code) + "DIV 256";
+			insert("temp := ", val1, ";\n");
+			insert("temp := temp", operation.getOperator());
 			if (singleByte.get(arg2.code)) {
-				insert("(", getByteRegister(arg2.code), ");\n");
-			} else { // db variable or const
-				insert(arg2.str, ";\n");
+				val2 = getByteRegister(arg2.code);
+				insert("(", val2, ");\n");
 			}
-			setFlags(arg1);
+			else if(variableSize.get(arg2.str) != null){//db
+				val2 = arg2.str;
+				insert(val2,";\n");
+			}
+			else { // const
+				int val = toUnsigned(arg2.val, Size.BYTE);
+				val2 = Integer.toString(val);
+				insert(val2, ";\n");
+			}
 
 		} else if (lowByte.get(arg1.code)) {
-			insert("temp := ", getXRegister(arg1.code), " MOD 256;\n");
-			insert("temp := temp", op);
+			size = Size.BYTE;
+			val1 = getXRegister(arg1.code) + "MOD 256";
+			insert("temp := ", val1, ";\n");
+			insert("temp := temp", operation.getOperator());
 			if (singleByte.get(arg2.code)) {
-				insert("(", getByteRegister(arg2.code), ");\n");
-			} else { // db variable or const
-				insert(arg2.str, ";\n");
+				val2 = getByteRegister(arg2.code);
+				insert("(", val2, ");\n");
+			}			
+			else if(variableSize.get(arg2.str) != null){//db
+				val2 = arg2.str;
+				insert(val2,";\n");
 			}
-			setFlags(arg1);
+			else { // const
+				int val = toUnsigned(arg2.val, Size.BYTE);
+				val2 = Integer.toString(val);
+				insert(val2, ";\n");
+			}
 
 		} else { // db or dw variable
+			size = variableSize.get(arg1.str);
+			val1 = arg1.str;
 			insert(arg1.str, " := ");
-			insert(arg1.str, op);
+			insert(val1, operation.getOperator());
 			if (doubleByte.get(arg2.code)) {
+				val2 = arg2.str;
 				insert(arg2.str, ";\n");
 			} else if (singleByte.get(arg2.code)) {
-				insert(getByteRegister(arg2.code), ";\n");
-			} else { // db or dw variable or const
-				insert(arg2.str, ";\n");
+				val2 = getByteRegister(arg2.code);
+				insert(val2, ";\n");
+			} else if(variableSize.get(arg2.str) != null){
+				val2 = arg2.str;
+				insert(val2, "\n");
+			} else { 
+				int val = toUnsigned(arg2.val, variableSize.get(arg1.str));
+				val2 = Integer.toString(val);
+				insert(val2, ";\n");
 			}
-			setFlags(arg1);
 		}
+		switch (operation) {
+		case ADDITION:
+			setAddFlags(val1, val2, size);
+			setResult(arg1);
+			break;
+		case SUBTRACTION:
+			setSubFlags(val1, val2, size);
+			setResult(arg1);
+			break;
+		case COMPARE:
+			setSubFlags(val1, val2, size);
+			break;
+		case INCREMENTATION:
+			setIncFlags(val1, val2, size);
+			setResult(arg1);
+			break;
+		case DECREMENTATION:
+			setDecFlags(val1, val2, size);
+			setResult(arg1);
+			break;
+		case MULTIPLICATION:
+			setMulFlags(size);
+			setMulResult(size);
+			break;
+		default:
+			throw new IllegalArgumentException("Operator not supported " + operation.getOperator());
+		}
+	}
+
+	private void div(Token arg) {
+		if (doubleByte.get(arg.code) || variableSize.get(arg.str).equals(Size.DOUBLE_BYTE)) {
+			insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, "\n" );
+			insert("IF ",arg.str, " = 0 OR temp >= 65536 THEN \n");
+			insert("CALL Z /n ELSE/n");
+			insert("dx := (dx * 65536 + ax) MOD ", arg.str, "\n" );
+			insert("ax := temp \n FI; \n");
+			setDivFlag(Size.DOUBLE_BYTE);
+		} else { //arg is byte
+			insert("IF ",arg.str, " = 0 OR temp >= 256 THEN \n");
+			insert("CALL Z /n ELSE/n");
+			insert("temp := ax DIV ", arg.str, ";\n");
+			insert("ax := (ax MOD ", arg.str, ") * 256 + (ax MOD 256); \n");
+			insert("ax := (ax DIV 256)*256 + temp");
+			insert("ax := temp \n FI; \n");
+			setDivFlag(Size.BYTE);
+		}
+	}
+	
+	private void setDivFlag(Size doubleByte2) {
+		
+		
+	}
+
+	private void mul(Token arg) {
+		if (doubleByte.get(arg.code) || variableSize.get(arg.str).equals(Size.DOUBLE_BYTE)) {
+			arithmeticInstruction(new Token(ax, 0, str[ax]), arg, Operation.MULTIPLICATION);
+		} else { //arg is byte
+			arithmeticInstruction(new Token(al, 0, str[al]), arg, Operation.MULTIPLICATION);
+		}
+	}
+	
+	private void setMulResult(Size size) {
+		if (size == Size.BYTE) {
+			insert("ax := temp; \n");
+		} else { // double byte
+			insert("ax := temp MOD 65536; \n");
+			insert("dx := temp DIV 65536; \n");
+		}
+	}
+
+	private void setMulFlags(Size size) {
+		insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN \n");
+		insert("flag_o = 1; \n flag_c = 1 \n");
+		insert("ELSE \n");
+		insert("flag_o = 0; \n flag_c = 0 \n FI; \n");
 	}
 
 	private void setResult(Token arg) {
@@ -483,41 +589,80 @@ public class Parser extends AbstractCompiler {
 		} else if (highByte.get(arg.code)) {
 			insert(getXRegister(arg.code), ":= (", getXRegister(arg.code),
 					" MOD 256) + temp*256; \n");
+		} else {
+			insert(arg.str, " := temp; \n");
 		}
 	}
 
-	private void generateOverflowCheck(Token arg) {
-		String overflow;
-		// FIXME what to do in case of dw or db variable
-		// FIXME what in case of underflow
-		if (doubleByte.get(arg.code)) {
-			overflow = "65536";
-		} else {
-			overflow = "256";
-		}
-		insert("overflow := ", overflow, ";\n");
-		insert("IF  temp  >= ", overflow, " THEN\n temp := temp", " MOD ", overflow, "; \n ");
+	private void setSubFlags(String val1, String val2, Size size) {
+		generateSubCarryCheck(size);
+		generateZeroCheck();
+		generateSignCheck(size);
+		generateSubOverflowCheck(val1, val2, size);
+	}
+
+	private void setDecFlags(String val1, String val2, Size size) {
+		insert("temp := temp + (2**", Integer.toString(size.getSize()), "); \n");
+		generateZeroCheck();
+		generateSignCheck(size);
+		generateSubOverflowCheck(val1, val2, size);
+	}
+	
+	private void setAddFlags(String val1, String val2, Size size) {
+		generateAddCarryCheck(size);
+		generateZeroCheck();
+		generateSignCheck(size);
+		generateAddOverflowCheck(val1, val2, size);
+	}
+	
+	private void setIncFlags(String val1, String val2, Size size) {
+		insert("temp := temp MOD 2**", Integer.toString(size.getSize()), "; \n");
+		generateZeroCheck();
+		generateSignCheck(size);
+		generateAddOverflowCheck(val1, val2, size);
+	}
+
+	private void generateAddOverflowCheck(String val1, String val2, Size size) {
+		insert("IF ((",val1,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) = ");
+		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) AND ");
+		insert("(temp DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) <> ");
+		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) THEN \n");
 		insert("flag_o := 1 \n ELSE \n flag_o := 0 \n FI; \n");
 	}
 
+	private void generateSubOverflowCheck(String val1, String val2, Size size) {
+		insert("IF ((",val1,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) <> ");
+		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) AND ");
+		insert("(temp DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) = ");
+		insert("((",val2,") DIV 2**", Integer.toString(size.getSize()-1)," MOD 2) THEN \n");
+		insert("flag_o := 1 \n ELSE \n flag_o := 0 \n FI; \n");
+	}
+	
 	private void generateZeroCheck() {
 		insert("IF temp = 0 THEN\n flag_z :=1 \n ELSE \n flag_z :=0; \n FI; \n");
 	}
 
-	private void generateSignCheck() {
-		insert("IF temp < 0 THEN\n flag_s :=1\nELSE\n flag_s :=0;\nFI;\n");
+	private void generateSignCheck(Size size) {
+		insert("IF (temp DIV 2**", Integer.toString(size.getSize()-1),") MOD 2 = 1 \n THEN");
+		insert("flag_s :=1 \n ELSE \n flag_s :=0 \n FI; \n ");
 	}
 
-	private void generateCarryCheck() {
-		insert("flag_o := 1;\n flag_c := 1\nELSE\n flag_o := 0;\n flag_c := 0;\nFI;\n");
+	private void generateAddCarryCheck(Size size) {
+		insert("IF temp >= 2**", Integer.toString(size.getSize())," THEN \n");
+		insert("temp := temp MOD 2**", Integer.toString(size.getSize()), "; \n");
+		insert("flag_c := 1 \n");
+		insert("ELSE \n flag_c := 0 \n");
+		insert("FI; \n");
 	}
 
-	private void setFlags(Token arg) {
-		generateOverflowCheck(arg);
-		generateZeroCheck();
-		generateSignCheck();
+	private void generateSubCarryCheck(Size size) {
+		insert("IF temp < 0 THEN \n");
+		insert("temp := temp + (2**", Integer.toString(size.getSize()), "); \n");
+		insert("flag_c := 1 \n");
+		insert("ELSE \n flag_c := 0 \n");
+		insert("FI; \n");
 	}
-
+	
 	private void xchg(Token arg1, Token arg2) {
 		String arg1Name;
 		String arg2Name;
@@ -531,7 +676,8 @@ public class Parser extends AbstractCompiler {
 		} else {
 			arg2Name = arg2.str;
 		}
-		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ", arg1Name, " >;\n");
+		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ",
+				arg1Name, " >;\n");
 	}
 
 	private void mov(Token arg1, Token arg2) throws Exception {
@@ -544,31 +690,48 @@ public class Parser extends AbstractCompiler {
 			insert(arg1.str, " := ");
 			if (doubleByte.get(arg2.code)) {
 				insert(str[arg2.code], ";\n");
-			} else { // dw variable or const
+			}
+			else if(variableSize.get(arg2.str)!= null){
+				//db or dw
 				insert(arg2.str, ";\n");
+			}
+			else { // dw variable or const
+				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
+				insert(Integer.toString(val), ";\n");
 			}
 
 		} else if (highByte.get(arg1.code)) {
 
-			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code), " MOD 256) + ");
+			insert(getXRegister(arg1.code), " := ", "(",
+					getXRegister(arg1.code), " MOD 256) + ");
 			if (highByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " DIV 256) * 256;\n");
 			} else if (lowByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " MOD 256) * 256;\n");
-			} else { // db variable or const
-				insert(arg2.str, " * 256;\n");
+				
+			} else if(variableSize.get(arg2.str) != null){
+				insert(arg2.str, " * 256; \n ");
+			}
+			else { // db variable or const
+				int val = toUnsigned(arg2.val, Size.BYTE);
+				insert(Integer.toString(val), " * 256;\n");
 			}
 
 		} else if (lowByte.get(arg1.code)) {
 
-			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code),
-					" DIV 256) * 256 + ");
+			insert(getXRegister(arg1.code), " := ", "(",
+					getXRegister(arg1.code), " DIV 256) * 256 + ");
 			if (lowByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " MOD 256);\n");
 			} else if (highByte.get(arg2.code)) {
 				insert("(", getXRegister(arg2.code), " DIV 256);\n");
-			} else { // db variable or const
+			}else if(variableSize .get(arg2.str)!= null){
 				insert(arg2.str, ";\n");
+				
+			}
+			else { // db variable or const
+				int val = toUnsigned(arg2.val, Size.BYTE);
+				insert(Integer.toString(val), ";\n");
 			}
 
 		} else { // db or dw variable
@@ -580,8 +743,13 @@ public class Parser extends AbstractCompiler {
 				insert(getXRegister(arg2.code), " MOD 256;\n");
 			} else if (highByte.get(arg2.code)) {
 				insert(getXRegister(arg2.code), " DIV 256;\n");
-			} else { // db or dw variable or const
+			} else if(variableSize.get(arg2.str) != null) { // db or dw
 				insert(arg2.str, ";\n");
+			}
+			else{
+				//const
+				int val = toUnsigned(arg2.val, variableSize.get(arg1.str));
+				insert(Integer.toString(val), ";\n");
 			}
 
 		}
@@ -602,11 +770,8 @@ public class Parser extends AbstractCompiler {
 		case loop:
 			check(loop);
 			arg = Argument();
-			insert("temp := cx; \n");
-			insert("temp := temp - 1; \n");
-			setFlags(new Token(cx, str[cx]));
-			setResult(new Token(cx, str[cx]));
-			insert("IF flag_z = 0 THEN\n CALL ", arg.str, " \nFI;\n");
+			insert("cx := cx - 1; \n");
+			insert("IF cx <> 0 THEN\n CALL ", arg.str, " \n FI; \n");
 			break;
 		case push:
 			check(push);
@@ -623,18 +788,12 @@ public class Parser extends AbstractCompiler {
 		case inc:
 			check(inc);
 			arg = Argument();
-			insert("temp := ", arg.str, "; \n");
-			insert("temp := temp + 1; \n");
-			setFlags(arg);
-			setResult(arg);
+			arithmeticInstruction(arg, new Token(number,1,"1"), Operation.INCREMENTATION);
 			break;
 		case dec:
 			check(dec);
 			arg = Argument();
-			insert("temp := ", arg.str, "; \n");
-			insert("temp := temp - 1; \n");
-			setFlags(arg);
-			setResult(arg);
+			arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
 			break;
 		case call:
 			check(call);
@@ -644,17 +803,17 @@ public class Parser extends AbstractCompiler {
 		case neg:
 			check(neg);
 			arg = Argument();
-			sub(new Token(number, 0, "0"), arg);
+			arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.SUBTRACTION);
 			break;
 		case mul:
 			check(mul);
 			arg = Argument();
-			// mul(arguments[0], arguments[1]);
+			mul(arg);
 			break;
 		case div:
 			check(div);
 			arg = Argument();
-			// div(arguments[0], arguments[1]);
+			div(arg);
 			break;
 		case jmp:
 			check(jmp);
@@ -664,7 +823,8 @@ public class Parser extends AbstractCompiler {
 		case ja:
 			check(ja);
 			arg = Argument();
-			insert("IF flag_c = 0 AND flag_z = 0 THEN CALL ", arg.str, " FI; \n");
+			insert("IF flag_c = 0 AND flag_z = 0 THEN CALL ", arg.str,
+					" FI; \n");
 			break;
 		case jae:
 			check(jae);
@@ -679,12 +839,14 @@ public class Parser extends AbstractCompiler {
 		case jbe:
 			check(jbe);
 			arg = Argument();
-			insert("IF flag_c = 1 AND flag_z = 1 THEN CALL ", arg.str, " FI; \n");
+			insert("IF flag_c = 1 AND flag_z = 1 THEN CALL ", arg.str,
+					" FI; \n");
 			break;
 		case jg:
 			check(jg);
 			arg = Argument();
-			insert("IF flag_z = 0 AND flag_s = flag_o THEN CALL ", arg.str, " FI; \n");
+			insert("IF flag_z = 0 AND flag_s = flag_o THEN CALL ", arg.str,
+					" FI; \n");
 			break;
 		case jge:
 			check(jge);
@@ -699,7 +861,8 @@ public class Parser extends AbstractCompiler {
 		case jle:
 			check(jle);
 			arg = Argument();
-			insert("IF flag_z = 1 OR flag_s <> flag_o THEN CALL ", arg.str, " FI; \n");
+			insert("IF flag_z = 1 OR flag_s <> flag_o THEN CALL ", arg.str,
+					" FI; \n");
 			break;
 		case je:
 			check(je);
@@ -754,7 +917,6 @@ public class Parser extends AbstractCompiler {
 
 	private Token Number() throws Exception {
 		Token ret = curr;
-		check(number);
 		return ret;
 	}
 
