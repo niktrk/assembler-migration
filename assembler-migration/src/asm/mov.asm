@@ -12,15 +12,10 @@ let dw 49
 
 start:
 
-mov ax,let
-mov bl,nik
-mov let,dx
-mov ds,ax
-mov ah,9
-mov cl,nik
-xchg let, nik
+cmp let, nik
+jg letcar
 
-add cx, ax
-add cx, let
+letcar:
+add al, let
 
 end start
