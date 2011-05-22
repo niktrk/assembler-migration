@@ -49,6 +49,7 @@ public class Scanner extends AbstractCompiler {
 		}
 		return ret.toLowerCase();
 	}
+	
 
 	private Token readNumber() throws Exception {
 		String num = "";
