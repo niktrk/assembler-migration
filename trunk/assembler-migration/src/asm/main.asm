@@ -2,37 +2,37 @@ title Pera ;blah blah b34 23d
 .model small
 .stack 100h
 .data
-message db 'Ja volim vatat muve$'
-message2 db 'Trula kobila $'
+let db 8
+nik db 10
 
 
 .code
 
-novi proc
-start:
-mov dx, 10
-mov ah, 02
-ret
-novi endp
-
-stari macro z o v
-start: 
-mov ax, z
-endm
-
+write macro char
+	mov ah,02
+	mov dl,char
+	int 21h
+endm	
 
 start:
-mov ax,@data
-mov ds,ax
+mov ax, @data
+mov ds, ax
+mov ax,0
 
-mov dx, offset message
-mov ah,9
+mov al, 65
+mov bh, 12
+add al, bh
 
-call novi
+div nik					    ;podeli index(ax) sa 10
+mov bl,al					;prebaci rezultat deljenja u bl
+add bl,48					;napravi broj od ASCII coda
+mov bh,ah					;prebaci ostatak pri deljenju u bh
+add bh,48					;napravi broj od ASCII coda
+write bl					;ispisi prvu cifru
+write bh					;ispisi drugi cifru
 
-mov dx, offset message2
-mov ah,9
-
-quit: jmp quit
-
+theend:
+MOV AX,4C00H
+INT 21h
+	
 end start
