@@ -119,7 +119,11 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private String getXRegister(int code) {
-		return str[code].charAt(0) + "x";
+		if (lowByte.get(code) || highByte.get(code)) {
+			return str[code].charAt(0) + "x";
+		} else {
+			throw new IllegalArgumentException("Invalid token code number: " + code);
+		}
 	}
 
 	private String getByteRegister(int code) {
@@ -165,10 +169,7 @@ public class Parser extends AbstractCompiler {
 		buffer = buffer.replace("_body_", "");
 		buffer = buffer.replace("_proc_", "");
 		// temporary fix, I hope :)
-		buffer = buffer.replace("; \nEND", "\nEND");
-		buffer = buffer.replace(";\n END", "\nEND");
-		buffer = buffer.replace("; \n END", "\nEND");
-		buffer = buffer.replace(";\nEND", "\nEND");
+		buffer = buffer.replace(";" + NEW_LINE + "END", NEW_LINE + "END");
 
 		return buffer;
 	}
@@ -506,9 +507,6 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert("temp := ", val1, ";");
-			insert("temp := temp ", operation.getOperator(), " ", val2, ";");
-
 		} else if (highByte.get(arg1.code)) {
 			size = Size.BYTE;
 			val1 = getXRegister(arg1.code) + " DIV 256";
@@ -522,9 +520,6 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert("temp := ", val1, ";");
-			insert("temp := temp ", operation.getOperator(), " ", val2, ";");
-
 		} else if (lowByte.get(arg1.code)) {
 			size = Size.BYTE;
 			val1 = getXRegister(arg1.code) + " MOD 256";
@@ -537,9 +532,6 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
 			}
-
-			insert("temp := ", val1, ";");
-			insert("temp := temp ", operation.getOperator(), " ", val2, ";");
 
 		} else { // db or dw variable
 			size = variableSize.get(getVariableName(arg1.str));
@@ -556,10 +548,11 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert("temp := ", val1, ";");
-			insert("temp := temp ", operation.getOperator(), " ", val2, ";");
-
 		}
+
+		insert("temp := ", val1, ";");
+		insert("temp := temp ", operation.getOperator(), " ", val2, ";");
+
 		switch (operation) {
 		case ADDITION:
 			setAddFlags(val1, val2, size);
@@ -637,7 +630,7 @@ public class Parser extends AbstractCompiler {
 
 	private void setResult(Token arg) {
 		if (doubleByte.get(arg.code)) {
-			insert(getXRegister(arg.code), " := temp;");
+			insert(arg.str, " := temp;");
 		} else if (lowByte.get(arg.code)) {
 			insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " DIV 256) * 256 + temp;");
 		} else if (highByte.get(arg.code)) {
@@ -676,10 +669,8 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateAddOverflowCheck(String val1, String val2, Size size) {
-		// FIXME fix this insert, create getSignBit method
-		insert("IF (((", val1, ") DIV 2**", Integer.toString(size.getSize() - 1), ") MOD 2) = (((", val2, ") DIV 2**", Integer
-				.toString(size.getSize() - 1), ") MOD 2) AND ((temp DIV 2**", Integer.toString(size.getSize() - 1),
-				") MOD 2) <> (((", val2, ") DIV 2**", Integer.toString(size.getSize() - 1), ") MOD 2) THEN");
+		insert("IF ", generateGetSignBit(val1, size), " = ", generateGetSignBit(val2, size), " AND ", generateGetSignBit("temp",
+				size), " <> ", generateGetSignBit(val2, size), " THEN");
 		insert("flag_o := 1");
 		insert("ELSE");
 		insert("flag_o := 0");
@@ -687,14 +678,16 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateSubOverflowCheck(String val1, String val2, Size size) {
-		// FIXME fix this insert, create getSignBit method
-		insert("IF (((", val1, ") DIV 2**", Integer.toString(size.getSize() - 1), ") MOD 2) <> (((", val2, ") DIV 2**", Integer
-				.toString(size.getSize() - 1), ") MOD 2) AND ((temp DIV 2**", Integer.toString(size.getSize() - 1),
-				") MOD 2) = (((", val2, ") DIV 2**", Integer.toString(size.getSize() - 1), ") MOD 2) THEN");
+		insert("IF ", generateGetSignBit(val1, size), " <> ", generateGetSignBit(val2, size), " AND ", generateGetSignBit("temp",
+				size), " = ", generateGetSignBit(val2, size), " THEN");
 		insert("flag_o := 1");
 		insert("ELSE");
 		insert("flag_o := 0");
 		insert("FI;");
+	}
+
+	private String generateGetSignBit(String val, Size size) {
+		return "(((" + val + ") DIV 2**" + Integer.toString(size.getSize() - 1) + ") MOD 2)";
 	}
 
 	private void generateZeroCheck() {
@@ -706,7 +699,7 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateSignCheck(Size size) {
-		insert("IF (temp DIV 2**", Integer.toString(size.getSize() - 1), ") MOD 2 = 1 THEN");
+		insert("IF ", generateGetSignBit("temp", size), " = 1 THEN");
 		insert("flag_s := 1");
 		insert("ELSE");
 		insert("flag_s := 0");
@@ -731,6 +724,7 @@ public class Parser extends AbstractCompiler {
 		insert("FI;");
 	}
 
+	// FIXME lol mislim da ovaj nas xchg radi u 3% slucajeva:)
 	private void xchg(Token arg1, Token arg2) {
 		String arg1Name;
 		String arg2Name;
