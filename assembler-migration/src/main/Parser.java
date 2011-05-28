@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 /**
@@ -14,12 +15,15 @@ public class Parser extends AbstractCompiler {
 
 	private Scanner sc;
 	private Token curr, la;
+	private List<Token> tokens;
+	private ListIterator<Token> tokensIterator;
 	private String buffer;
 	private boolean inProc = false;
 
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
-	Map<String, Size> variableSize;
-	Map<String, List<String>> macroParams;
+	private Map<String, Size> variableSize;
+	private Map<String, List<Token>> macroParams;
+	private Map<String, List<Token>> macroTokens;
 
 	public Parser(Scanner sc) throws Exception {
 		this.sc = sc;
@@ -99,7 +103,8 @@ public class Parser extends AbstractCompiler {
 		buffer = new String();
 
 		variableSize = new HashMap<String, Size>();
-		macroParams = new HashMap<String, List<String>>();
+		macroParams = new HashMap<String, List<Token>>();
+		macroTokens = new HashMap<String, List<Token>>();
 
 		curr = sc.next();
 		la = sc.next();
@@ -121,14 +126,22 @@ public class Parser extends AbstractCompiler {
 	private void check(int... code) throws Exception {
 		for (int i = 0; i < code.length; i++) {
 			if (curr.code == code[i]) {
+				// read next token
 				curr = la;
-				la = sc.next();
+				la = nextToken();
 				return;
 			}
 		}
 		// error
 		System.out.println("Kurac!");
 		System.exit(0);
+	}
+
+	private Token nextToken() throws Exception {
+		if (tokensIterator.hasNext()) {
+			return tokensIterator.next();
+		}
+		return sc.next();
 	}
 
 	public String parse() throws Exception {
@@ -281,41 +294,29 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void Macro() throws Exception {
-		insIntoProc("PROC ", curr.str, "(");
 		String macroName = curr.str;
-		List<String> params = new ArrayList<String>();
+		List<Token> currentMacroParams = new ArrayList<Token>();
 		check(ident);
 		check(macro);
 		if (curr.code == ident && la.code != colon) {
-			insIntoProc(curr.str);
-			params.add(macroName + "." + curr.str);
+			currentMacroParams.add(curr);
 			check(ident);
 			while (curr.code == ident && la.code == comma) {
 				check(comma);
-				insIntoProc(",", curr.str);
-				params.add(macroName + "." + curr.str);
+				currentMacroParams.add(curr);
 				check(ident);
 			}
 		}
-		macroParams.put(macroName, params);
-		insIntoProc(") ==\n");
-		insIntoProc("ACTIONS beg: \n");
-		insIntoProc("beg== \n");
+		macroParams.put(macroName, currentMacroParams);
 
-		while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-
-			if (curr.code == ident && la.code == colon) {
-				Label();
-			} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-				Statement();
-			}
-
+		List<Token> currentMacroTokens = new ArrayList<Token>();
+		while (curr.code != endm) {
+			currentMacroTokens.add(curr);
+			curr = la;
+			la = sc.next();
 		}
+		macroTokens.put(macroName, currentMacroTokens);
 		check(endm);
-		insIntoProc("END\n");
-		insIntoProc("ENDACTIONS \n");
-		insIntoProc("END \n");
-
 	}
 
 	private void Procedure() throws Exception {
@@ -359,22 +360,17 @@ public class Parser extends AbstractCompiler {
 			TwoArgStatement();
 		} else if (macroParams.get(curr.str) != null) { // macro
 			String macroName = curr.str;
-			List<String> params = macroParams.get(macroName);
+			List<Token> formalParams = macroParams.get(macroName);
+			List<Token> tokens = macroTokens.get(macroName);
 			check(ident);
-			insert(macroName, "(");
-			for (String param : params) {
-				if (singleByte.get(curr.code)) {
-					insert(getByteRegister(curr.code));
-				} else {
-					insert(curr.str);
-				}
+
+			for (Token param : formalParams) {
 				check(ident);
 				if (curr.code == comma) {
 					check(comma);
-					insert(", ");
 				}
 			}
-			insert("); \n");
+
 		}
 	}
 
