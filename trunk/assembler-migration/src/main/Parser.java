@@ -8,25 +8,31 @@ import java.util.ListIterator;
 import java.util.Map;
 
 /**
- * @author Igor i ostali
+ * Parser and code generation component of the translator.
+ * 
+ * @author Igor Let
+ * @author Nikola Trkulja
+ * 
  * @date 2. 5. 2011.
  */
 public class Parser extends AbstractCompiler {
 
+	private static final String NEW_LINE = System.getProperty("line.separator");
+
 	private Scanner sc;
 	private Token curr, la;
-	private List<Token> tokens;
-	private ListIterator<Token> tokensIterator;
+	private ListIterator<Token> tokenListIterator;
 	private String buffer;
-	private boolean inProc = false;
+	private boolean inProc;
 
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
 	private Map<String, Size> variableSize;
 	private Map<String, List<Token>> macroParams;
 	private Map<String, List<Token>> macroTokens;
 
-	public Parser(Scanner sc) throws Exception {
+	public Parser(Scanner sc) {
 		this.sc = sc;
+
 		oneArgComm = new BitSet();
 		oneArgComm.set(interr);
 		oneArgComm.set(loop);
@@ -106,8 +112,10 @@ public class Parser extends AbstractCompiler {
 		macroParams = new HashMap<String, List<Token>>();
 		macroTokens = new HashMap<String, List<Token>>();
 
-		curr = sc.next();
-		la = sc.next();
+		inProc = false;
+
+		curr = nextToken();
+		la = nextToken();
 	}
 
 	private String getXRegister(int code) {
@@ -119,11 +127,12 @@ public class Parser extends AbstractCompiler {
 			return str[code].charAt(0) + "x MOD 256";
 		} else if (highByte.get(code)) {
 			return str[code].charAt(0) + "x DIV 256";
+		} else {
+			throw new IllegalArgumentException("Invalid token code number: " + code);
 		}
-		return "";
 	}
 
-	private void check(int... code) throws Exception {
+	private void check(int... code) {
 		for (int i = 0; i < code.length; i++) {
 			if (curr.code == code[i]) {
 				// read next token
@@ -137,18 +146,18 @@ public class Parser extends AbstractCompiler {
 		System.exit(0);
 	}
 
-	private Token nextToken() throws Exception {
-		if (tokensIterator.hasNext()) {
-			return tokensIterator.next();
+	private Token nextToken() {
+		if (tokenListIterator != null && tokenListIterator.hasNext()) {
+			return tokenListIterator.next();
 		}
 		return sc.next();
 	}
 
-	public String parse() throws Exception {
-		String template = "VAR < _decl_ >:\n_body__proc_ENDVAR";
-		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, \n"
-				+ " bx:= 0, overflow:= 0, cx:= 0, dx:= 0, temp := 0, \n" + " si:= 0, di:= 0, bp:= 0, sp:= 0, \n"
-				+ " cs:= 0, ds:= 0, ss:= 0, es:= 0 \n _decl_";
+	public String parse() {
+		String template = "VAR < _decl_ >: " + NEW_LINE + " _body_ _proc_ ENDVAR";
+		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, " + NEW_LINE
+				+ " bx:= 0, cx:= 0, dx:= 0, temp := 0, si:= 0, di:= 0, bp:= 0, sp:= 0, " + NEW_LINE
+				+ " cs:= 0, ds:= 0, ss:= 0, es:= 0 " + NEW_LINE + " _decl_";
 
 		buffer = template.replace("_decl_", declaration);
 		Program();
@@ -174,12 +183,14 @@ public class Parser extends AbstractCompiler {
 		for (int i = 0; i < s.length; i++) {
 			buffer = buffer.replace("_body_", s[i] + "_body_");
 		}
+		buffer = buffer.replace("_body_", NEW_LINE + "_body_");
 	}
 
 	private void insIntoProc(String... s) {
 		for (int i = 0; i < s.length; i++) {
 			buffer = buffer.replace("_proc_", s[i] + "_proc_");
 		}
+		buffer = buffer.replace("_proc_", NEW_LINE + "_proc_");
 	}
 
 	private void insert(String... s) {
@@ -190,7 +201,7 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private void Program() throws Exception {
+	private void Program() {
 		if (curr.code == title) {
 			check(title);
 			check(ident);
@@ -201,7 +212,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == stack) {
 			check(stack);
 			check(number);
-			insIntoDecl(", stack :=< >");
+			insIntoDecl(", stack := < >");
 		}
 		if (curr.code == data) {
 			Data();
@@ -211,7 +222,7 @@ public class Parser extends AbstractCompiler {
 
 	}
 
-	private void Data() throws Exception {
+	private void Data() {
 		boolean array;
 		check(data);
 		String varName;
@@ -246,7 +257,7 @@ public class Parser extends AbstractCompiler {
 
 	}
 
-	private void Value(String varName) throws Exception {
+	private void Value(String varName) {
 		if (curr.code == number) {
 			insIntoDecl(Integer.toString(toUnsigned(curr.val, variableSize.get(getVariableName(varName)))));
 			check(number);
@@ -258,42 +269,44 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private void Code() throws Exception {
+	private void Code() {
 		check(code);
 
 		if (curr.code == ident && (la.code == proc || la.code == macro)) {
-			insIntoBody("BEGIN \n");
-			insIntoProc("WHERE \n");
-			inProc = true;
 			while (curr.code == ident && (la.code == proc || la.code == macro)) {
 				if (la.code == proc) {
+					insIntoBody("BEGIN");
+					insIntoProc("WHERE");
+					inProc = true;
 					Procedure();
+					insIntoProc("END");
 				} else {
 					Macro();
 				}
 			}
-			insIntoProc("END \n");
 		}
 
 		if (curr.code == ident && la.code == colon || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			insIntoBody("ACTIONS beg: \n");
-			insIntoBody("beg== \n");
+			insIntoBody("ACTIONS beg:");
+			insIntoBody("beg == ");
 			inProc = false;
-			while (curr.code == ident && la.code == colon || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-
-				if (curr.code == ident && la.code == colon) {
+			while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+				// if we have macro call, inject macro tokens
+				if (curr.code == ident && macroParams.get(curr.str) != null) {
+					injectMacro();
+				} else if (curr.code == ident && la.code == colon) {
 					Label();
 				} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 					Statement();
 				}
 
 			}
-			insIntoBody("END\n");
-			insIntoBody("ENDACTIONS \n");
+			insIntoBody("END");
+			insIntoBody("ENDACTIONS");
 		}
 	}
 
-	private void Macro() throws Exception {
+	private void Macro() {
 		String macroName = curr.str;
 		List<Token> currentMacroParams = new ArrayList<Token>();
 		check(ident);
@@ -301,7 +314,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == ident && la.code != colon) {
 			currentMacroParams.add(curr);
 			check(ident);
-			while (curr.code == ident && la.code == comma) {
+			while (curr.code == comma && la.code == ident) {
 				check(comma);
 				currentMacroParams.add(curr);
 				check(ident);
@@ -311,18 +324,22 @@ public class Parser extends AbstractCompiler {
 
 		List<Token> currentMacroTokens = new ArrayList<Token>();
 		while (curr.code != endm) {
-			currentMacroTokens.add(curr);
-			curr = la;
-			la = sc.next();
+			if (curr.code == ident && macroParams.get(curr.str) != null) {
+				injectMacro();
+			} else {
+				currentMacroTokens.add(curr);
+				curr = la;
+				la = nextToken();
+			}
 		}
 		macroTokens.put(macroName, currentMacroTokens);
 		check(endm);
 	}
 
-	private void Procedure() throws Exception {
-		insIntoProc("PROC ", curr.str, "()==\n");
-		insIntoProc("ACTIONS beg: \n");
-		insIntoProc("beg== \n");
+	private void Procedure() {
+		insIntoProc("PROC ", curr.str, "() == ");
+		insIntoProc("ACTIONS beg: ");
+		insIntoProc("beg == ");
 
 		check(ident);
 		check(proc);
@@ -330,9 +347,12 @@ public class Parser extends AbstractCompiler {
 			check(far);
 		}
 		while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			if (curr.code == ident) {
+			// if we have macro call, inject macro tokens
+			if (curr.code == ident && macroParams.get(curr.str) != null) {
+				injectMacro();
+			} else if (curr.code == ident && la.code == colon) {
 				Label();
-			} else {
+			} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 				Statement();
 			}
 
@@ -340,41 +360,75 @@ public class Parser extends AbstractCompiler {
 		check(ret);
 		check(ident);
 		check(endp);
-		insIntoProc("END\n");
-		insIntoProc("ENDACTIONS \n");
-		insIntoProc("END \n");
+		insIntoProc("END");
+		insIntoProc("ENDACTIONS");
+		insIntoProc("END");
 
 	}
 
-	private void Label() throws Exception {
-		insert("CALL ", curr.str, "\nEND\n");
-		insert(curr.str, "==\n");
+	private void Label() {
+		insert("CALL ", curr.str);
+		insert("END");
+		insert(curr.str, " == ");
 		check(ident);
 		check(colon);
 	}
 
-	private void Statement() throws Exception {
-		if (oneArgComm.get(curr.code)) {
-			OneArgStatement();
-		} else if (twoArgComm.get(curr.code)) {
-			TwoArgStatement();
-		} else if (macroParams.get(curr.str) != null) { // macro
+	private void injectMacro() {
+		if (macroParams.get(curr.str) != null) {
+
 			String macroName = curr.str;
 			List<Token> formalParams = macroParams.get(macroName);
+			List<Token> actualParams = new ArrayList<Token>();
 			List<Token> tokens = macroTokens.get(macroName);
+			List<Token> generatedTokens = new ArrayList<Token>();
 			check(ident);
 
-			for (Token param : formalParams) {
-				check(ident);
+			for (int i = 0; i < formalParams.size(); i++) {
+				actualParams.add(curr);
+				check(ident, number, string, ax, ah, al, bx, bh, bl, cx, ch, cl, dx, dh, dl, si, di, bp, sp, cs, ds, ss, es);
 				if (curr.code == comma) {
 					check(comma);
 				}
 			}
 
+			// iterate through all macro tokens and replace all occurrences of formal parameters
+			// with actual parameters
+			for (Token token : tokens) {
+				// iterate through all formal parameters
+				boolean found = false;
+				for (int i = 0; i < formalParams.size() && !found; i++) {
+					// if current token is formal parameter put actual parameter to list
+					if (token.sameAs(formalParams.get(i))) {
+						generatedTokens.add(actualParams.get(i));
+						found = true;
+					}
+				}
+				if (!found) {
+					generatedTokens.add(token);
+				}
+			}
+
+			generatedTokens.add(curr);
+			generatedTokens.add(la);
+			tokenListIterator = generatedTokens.listIterator();
+			curr = nextToken();
+			la = nextToken();
+
+		} else {
+			// error
 		}
 	}
 
-	private Token[] getArguments() throws Exception {
+	private void Statement() {
+		if (oneArgComm.get(curr.code)) {
+			OneArgStatement();
+		} else if (twoArgComm.get(curr.code)) {
+			TwoArgStatement();
+		}
+	}
+
+	private Token[] getArguments() {
 		Token[] ret = new Token[2];
 		ret[0] = Argument();
 		check(comma);
@@ -382,7 +436,7 @@ public class Parser extends AbstractCompiler {
 		return ret;
 	}
 
-	private void TwoArgStatement() throws Exception {
+	private void TwoArgStatement() {
 		Token[] arguments;
 		switch (curr.code) {
 		case mov:
@@ -442,7 +496,10 @@ public class Parser extends AbstractCompiler {
 		if (doubleByte.get(arg1.code)) {
 			size = Size.DOUBLE_BYTE;
 			val1 = arg1.str;
-			insert("temp := ", val1, ";\n");
+
+			// TODO ended here
+
+			insert("temp := ", val1, ";");
 			insert("temp := temp ", operation.getOperator());
 			if (doubleByte.get(arg2.code)) {
 				val2 = arg2.str;
@@ -675,7 +732,7 @@ public class Parser extends AbstractCompiler {
 		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ", arg1Name, " >;\n");
 	}
 
-	private void mov(Token arg1, Token arg2) throws Exception {
+	private void mov(Token arg1, Token arg2) {
 		if (arg2.code == atdata || arg2.code == offset) {
 			return;
 		}
@@ -755,7 +812,7 @@ public class Parser extends AbstractCompiler {
 		return var;
 	}
 
-	private void OneArgStatement() throws Exception {
+	private void OneArgStatement() {
 		Token arg = new Token();
 		switch (curr.code) {
 		case interr:
@@ -870,7 +927,7 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private Token Argument() throws Exception {
+	private Token Argument() {
 		Token ret = new Token();
 		if (curr.code == ident) {
 			ret = curr;
@@ -911,13 +968,13 @@ public class Parser extends AbstractCompiler {
 		return ret;
 	}
 
-	private Token Number() throws Exception {
+	private Token Number() {
 		Token ret = curr;
 		check(number);
 		return ret;
 	}
 
-	private Token Register() throws Exception {
+	private Token Register() {
 		Token ret = new Token();
 		switch (curr.code) {
 		case ax:

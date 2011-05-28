@@ -1,8 +1,16 @@
 package main;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
 
+/**
+ * Scanner component of the translator.
+ * 
+ * @author Igor Let
+ * @author Nikola Trkulja
+ */
 public class Scanner extends AbstractCompiler {
 
 	public BufferedReader sc;
@@ -13,23 +21,30 @@ public class Scanner extends AbstractCompiler {
 		try {
 			sc = new BufferedReader(new FileReader(file));
 			chr = (char) sc.read();
-		} catch (Exception e) {
+		} catch (FileNotFoundException e) {
 			System.out.println("File " + file + " doesn't exist.");
 			System.exit(0);
-		}
-
-	}
-
-	private void read() throws Exception {
-		int i = sc.read();
-		if (i == -1) {
-			eof = true;
-		} else {
-			chr = (char) i;
+		} catch (IOException e) {
+			System.out.println("Error occurred while trying to read input file.");
+			System.exit(0);
 		}
 	}
 
-	private Token readString() throws Exception {
+	private void read() {
+		try {
+			int i = sc.read();
+			if (i == -1) {
+				eof = true;
+			} else {
+				chr = (char) i;
+			}
+		} catch (IOException ioe) {
+			System.out.println("Error occurred while trying to read input file.");
+			System.exit(0);
+		}
+	}
+
+	private Token readString() {
 		String str = "";
 		read();
 		while (chr != '\'') {
@@ -40,22 +55,19 @@ public class Scanner extends AbstractCompiler {
 		return new Token(string, 0, str);
 	}
 
-	private String readName() throws Exception {
+	private String readName() {
 		String ret = "";
-		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9')
-				&& !eof) {
+		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9') && !eof) {
 			ret += chr;
 			read();
 		}
 		return ret.toLowerCase();
 	}
-	
 
-	private Token readNumber() throws Exception {
+	private Token readNumber() {
 		String num = "";
 		int radix = 10;
-		while ((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f')
-				|| (chr >= 'A' && chr <= 'F') && !eof) {
+		while ((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f') || (chr >= 'A' && chr <= 'F') && !eof) {
 			num += chr;
 			read();
 		}
@@ -67,7 +79,7 @@ public class Scanner extends AbstractCompiler {
 		return new Token(number, value.intValue(), value.toString());
 	}
 
-	private void readComment() throws Exception {
+	private void readComment() {
 		while (chr != '\n' && !eof) {
 			read();
 		}
@@ -76,7 +88,7 @@ public class Scanner extends AbstractCompiler {
 		}
 	}
 
-	public Token next() throws Exception {
+	public Token next() {
 		while (chr <= ' ' && !eof) {
 			read();
 		}
@@ -258,7 +270,6 @@ public class Scanner extends AbstractCompiler {
 				} else {
 					ret.code = ident;
 				}
-
 			}
 			if (ret.code == ident) {
 				ret.str = str;
@@ -266,7 +277,6 @@ public class Scanner extends AbstractCompiler {
 				ret.str = AbstractCompiler.str[ret.code];
 			}
 		}
-
 		return ret;
 	}
 
