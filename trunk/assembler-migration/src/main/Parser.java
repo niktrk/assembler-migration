@@ -1,6 +1,7 @@
 package main;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
@@ -146,8 +147,8 @@ public class Parser extends AbstractCompiler {
 			}
 		}
 		// error
-		System.out.println("Kurac!");
-		System.exit(0);
+		throw new IllegalStateException("Expected to get some of: " + Arrays.toString(code) + " but current token is: "
+				+ curr.code);
 	}
 
 	private Token nextToken() {
@@ -209,7 +210,6 @@ public class Parser extends AbstractCompiler {
 		}
 		check(model);
 		check(small, compact, medium, large);
-
 		if (curr.code == stack) {
 			check(stack);
 			check(number);
@@ -218,9 +218,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == data) {
 			Data();
 		}
-
 		Code();
-
 	}
 
 	private void Data() {
@@ -252,10 +250,8 @@ public class Parser extends AbstractCompiler {
 				if (array) {
 					insIntoDecl(" >");
 				}
-
 			}
 		}
-
 	}
 
 	private void Value(String varName) {
@@ -393,8 +389,7 @@ public class Parser extends AbstractCompiler {
 				}
 			}
 
-			// iterate through all macro tokens and replace all occurrences of formal parameters
-			// with actual parameters
+			// iterate through all macro tokens and replace all occurrences of formal parameters with actual parameters
 			for (Token token : tokens) {
 				// iterate through all formal parameters
 				boolean found = false;
@@ -426,6 +421,8 @@ public class Parser extends AbstractCompiler {
 			OneArgStatement();
 		} else if (twoArgComm.get(curr.code)) {
 			TwoArgStatement();
+		} else {
+			// error
 		}
 	}
 
@@ -480,7 +477,7 @@ public class Parser extends AbstractCompiler {
 			// String.valueOf(arg2Val)));
 			break;
 		default:
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("Unsupported two argument instruction: " + curr.str);
 		}
 	}
 
@@ -724,21 +721,20 @@ public class Parser extends AbstractCompiler {
 		insert("FI;");
 	}
 
-	// FIXME lol mislim da ovaj nas xchg radi u 3% slucajeva:)
+	/**
+	 * Generates code for exchanging values of given arguments. Possible combinations of arguments:
+	 * <ul>
+	 * <li>reg - reg</li>
+	 * <li>mem - reg</li>
+	 * <li>reg - mem</li>
+	 * </ul>
+	 * Both locations must be of the same size.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void xchg(Token arg1, Token arg2) {
-		String arg1Name;
-		String arg2Name;
-		if (registers.get(arg1.code)) {
-			arg1Name = getXRegister(arg1.code);
-		} else {
-			arg1Name = arg1.str;
-		}
-		if (registers.get(arg2.code)) {
-			arg2Name = getXRegister(arg2.code);
-		} else {
-			arg2Name = arg2.str;
-		}
-		insert("< ", arg1Name, " := ", arg2Name, ", ", arg2Name, " := ", arg1Name, " >;");
+		insert("< ", generateMov(arg1, arg2), ", ", generateMov(arg2, arg1), " >;");
 	}
 
 	private void mov(Token arg1, Token arg2) {
@@ -747,7 +743,10 @@ public class Parser extends AbstractCompiler {
 		if (arg2.code == atdata || arg2.code == offset) {
 			return;
 		}
+		insert(generateMov(arg1, arg2), ";");
+	}
 
+	private String generateMov(Token arg1, Token arg2) {
 		String val2;
 		if (doubleByte.get(arg1.code)) {
 
@@ -760,7 +759,7 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert(arg1.str, " := ", val2, ";");
+			return arg1.str + " := " + val2;
 
 		} else if (highByte.get(arg1.code)) {
 
@@ -775,7 +774,7 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val) + " * 256";
 			}
 
-			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code), " MOD 256) + ", val2, ";");
+			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code) + " MOD 256) + " + val2;
 
 		} else if (lowByte.get(arg1.code)) {
 
@@ -790,7 +789,7 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert(getXRegister(arg1.code), " := ", "(", getXRegister(arg1.code), " DIV 256) * 256 + ", val2, ";");
+			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code) + " DIV 256) * 256 + " + val2;
 
 		} else { // db or dw variable
 
@@ -807,7 +806,7 @@ public class Parser extends AbstractCompiler {
 				val2 = Integer.toString(val);
 			}
 
-			insert(arg1.str, " := ", val2, ";");
+			return arg1.str + " := " + val2;
 
 		}
 	}
@@ -958,7 +957,7 @@ public class Parser extends AbstractCompiler {
 			insert("FI;");
 			break;
 		default:
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("Unsupporeted one argument instruction: " + curr.str);
 		}
 	}
 
@@ -999,6 +998,8 @@ public class Parser extends AbstractCompiler {
 			ret = curr;
 			check(offset);
 			check(ident);
+		} else {
+			// error
 		}
 		return ret;
 	}
@@ -1093,7 +1094,7 @@ public class Parser extends AbstractCompiler {
 			check(es);
 			break;
 		default:
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("Register expected, but got: " + curr.str);
 		}
 		return ret;
 	}

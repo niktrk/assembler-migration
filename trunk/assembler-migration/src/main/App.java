@@ -9,7 +9,7 @@ package main;
 public class App {
 
 	public static void main(String[] args) throws Exception {
-		Scanner sc = new Scanner("src/asm/nestedmacro.asm");
+		Scanner sc = new Scanner("src/asm/xchg.asm");
 		Parser p = new Parser(sc);
 		System.out.println(p.parse());
 	}
