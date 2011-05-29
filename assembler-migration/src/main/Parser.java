@@ -434,6 +434,13 @@ public class Parser extends AbstractCompiler {
 		return ret;
 	}
 
+	private int toUnsigned(int num, Size size) {
+		if (num >= 0) {
+			return num;
+		}
+		return (1 << size.getSize()) + num;
+	}
+
 	private void TwoArgStatement() {
 		Token[] arguments;
 		switch (curr.code) {
@@ -450,17 +457,17 @@ public class Parser extends AbstractCompiler {
 		case cmp:
 			check(cmp);
 			arguments = getArguments();
-			arithmeticInstruction(arguments[0], arguments[1], Operation.COMPARE);
+			cmp(arguments[0], arguments[1]);
 			break;
 		case add:
 			check(add);
 			arguments = getArguments();
-			arithmeticInstruction(arguments[0], arguments[1], Operation.ADDITION);
+			add(arguments[0], arguments[1]);
 			break;
 		case sub:
 			check(sub);
 			arguments = getArguments();
-			arithmeticInstruction(arguments[0], arguments[1], Operation.SUBTRACTION);
+			sub(arguments[0], arguments[1]);
 			break;
 		case shl:
 			check(shl);
@@ -481,11 +488,16 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
-	private int toUnsigned(int num, Size size) {
-		if (num >= 0) {
-			return num;
-		}
-		return (1 << size.getSize()) + num;
+	private void cmp(Token arg1, Token arg2) {
+		arithmeticInstruction(arg1, arg2, Operation.COMPARE);
+	}
+
+	private void add(Token arg1, Token arg2) {
+		arithmeticInstruction(arg1, arg2, Operation.ADDITION);
+	}
+
+	private void sub(Token arg1, Token arg2) {
+		arithmeticInstruction(arg1, arg2, Operation.SUBTRACTION);
 	}
 
 	private void arithmeticInstruction(Token arg1, Token arg2, Operation operation) {
@@ -823,6 +835,18 @@ public class Parser extends AbstractCompiler {
 		return var;
 	}
 
+	private void inc(Token arg) {
+		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.INCREMENTATION);
+	}
+
+	private void dec(Token arg) {
+		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
+	}
+
+	private void neg(Token arg) {
+		arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.SUBTRACTION);
+	}
+
 	private void OneArgStatement() {
 		Token arg = new Token();
 		switch (curr.code) {
@@ -836,6 +860,8 @@ public class Parser extends AbstractCompiler {
 				insert("ELSIF temp = 76 THEN"); // 4c == 76
 				insert("CALL Z");
 				insert("FI;");
+			} else {
+				// error
 			}
 			break;
 		case loop:
@@ -861,12 +887,12 @@ public class Parser extends AbstractCompiler {
 		case inc:
 			check(inc);
 			arg = Argument();
-			arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.INCREMENTATION);
+			inc(arg);
 			break;
 		case dec:
 			check(dec);
 			arg = Argument();
-			arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
+			dec(arg);
 			break;
 		case call:
 			check(call);
@@ -876,7 +902,7 @@ public class Parser extends AbstractCompiler {
 		case neg:
 			check(neg);
 			arg = Argument();
-			arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.SUBTRACTION);
+			neg(arg);
 			break;
 		case mul:
 			check(mul);
