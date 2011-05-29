@@ -18,13 +18,10 @@ import java.util.Map;
  */
 public class Parser extends AbstractCompiler {
 
-	private static final String NEW_LINE = System.getProperty("line.separator");
-
 	private Scanner sc;
 	private Token curr, la;
 	private ListIterator<Token> tokenListIterator;
-	private String buffer;
-	private boolean inProc;
+	private CodeBuffer buffer;
 
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
 	private Map<String, Size> variableSize;
@@ -107,13 +104,11 @@ public class Parser extends AbstractCompiler {
 		doubleByte.xor(lowByte);
 		doubleByte.xor(highByte);
 
-		buffer = new String();
+		buffer = new CodeBuffer();
 
 		variableSize = new HashMap<String, Size>();
 		macroParams = new HashMap<String, List<Token>>();
 		macroTokens = new HashMap<String, List<Token>>();
-
-		inProc = false;
 
 		curr = nextToken();
 		la = nextToken();
@@ -184,48 +179,9 @@ public class Parser extends AbstractCompiler {
 	}
 
 	public String parse() {
-		String template = "VAR <_decl_>: " + NEW_LINE + "_body__proc_ENDVAR";
-		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, " + NEW_LINE
-				+ " bx:= 0, cx:= 0, dx:= 0, temp := 0, si:= 0, di:= 0, bp:= 0, sp:= 0, " + NEW_LINE
-				+ " cs:= 0, ds:= 0, ss:= 0, es:= 0 " + NEW_LINE + " _decl_";
-
-		buffer = template.replace("_decl_", declaration);
 		Program();
-		buffer = buffer.replace("_decl_", "");
-		buffer = buffer.replace("_body_", "");
-		buffer = buffer.replace("_proc_", "");
-		// temporary fix, I hope :)
-		buffer = buffer.replace(";" + NEW_LINE + "END", NEW_LINE + "END");
-
-		return buffer;
-	}
-
-	private void insIntoDecl(String... s) {
-		for (int i = 0; i < s.length; i++) {
-			buffer = buffer.replace("_decl_", s[i] + "_decl_");
-		}
-	}
-
-	private void insIntoBody(String... s) {
-		for (int i = 0; i < s.length; i++) {
-			buffer = buffer.replace("_body_", s[i] + "_body_");
-		}
-		buffer = buffer.replace("_body_", NEW_LINE + "_body_");
-	}
-
-	private void insIntoProc(String... s) {
-		for (int i = 0; i < s.length; i++) {
-			buffer = buffer.replace("_proc_", s[i] + "_proc_");
-		}
-		buffer = buffer.replace("_proc_", NEW_LINE + "_proc_");
-	}
-
-	private void insert(String... s) {
-		if (inProc) {
-			insIntoProc(s);
-		} else {
-			insIntoBody(s);
-		}
+		buffer.close();
+		return buffer.toString();
 	}
 
 	private void Program() {
@@ -238,7 +194,7 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == stack) {
 			check(stack);
 			check(number);
-			insIntoDecl(", stack := < >");
+			buffer.insertIntoDeclaration(", stack := < >");
 		}
 		if (curr.code == data) {
 			Data();
@@ -252,7 +208,7 @@ public class Parser extends AbstractCompiler {
 		String varName;
 		while (curr.code == ident) {
 			array = false;
-			insIntoDecl(", ", curr.str, " := ");
+			buffer.insertIntoDeclaration(", ", curr.str, " := ");
 			if (la.code == db) {
 				variableSize.put(curr.str, Size.BYTE);
 			} else if (la.code == dw) {
@@ -264,17 +220,17 @@ public class Parser extends AbstractCompiler {
 			// TODO mozemo mozda dodati onaj upitnik shit
 			if (curr.code == number || curr.code == string) {
 				if (la.code == comma) {
-					insIntoDecl("< ");
+					buffer.insertIntoDeclaration("< ");
 					array = true;
 				}
 				Value(varName);
 				while (curr.code == comma) {
 					check(comma);
-					insIntoDecl(", ");
+					buffer.insertIntoDeclaration(", ");
 					Value(varName);
 				}
 				if (array) {
-					insIntoDecl(" >");
+					buffer.insertIntoDeclaration(" >");
 				}
 			} else {
 				// error
@@ -284,12 +240,12 @@ public class Parser extends AbstractCompiler {
 
 	private void Value(String varName) {
 		if (curr.code == number) {
-			insIntoDecl(Integer.toString(toUnsigned(curr.val, variableSize.get(getVariableName(varName)))));
+			buffer.insertIntoDeclaration(Integer.toString(toUnsigned(curr.val, variableSize.get(getVariableName(varName)))));
 			check(number);
 		} else if (curr.code == string) {
-			insIntoDecl("\"");
-			insIntoDecl(curr.str);
-			insIntoDecl("\"");
+			buffer.insertIntoDeclaration("\"");
+			buffer.insertIntoDeclaration(curr.str);
+			buffer.insertIntoDeclaration("\"");
 			check(string);
 		} else {
 			// error
@@ -302,11 +258,11 @@ public class Parser extends AbstractCompiler {
 		if (curr.code == ident && (la.code == proc || la.code == macro)) {
 			while (curr.code == ident && (la.code == proc || la.code == macro)) {
 				if (la.code == proc) {
-					insIntoBody("BEGIN");
-					insIntoProc("WHERE");
-					inProc = true;
+					buffer.insertIntoBody("BEGIN");
+					buffer.insertIntoProcedure("WHERE");
+					buffer.setInProc(true);
 					Procedure();
-					insIntoProc("END");
+					buffer.insertIntoProcedure("END");
 				} else {
 					Macro();
 				}
@@ -314,9 +270,9 @@ public class Parser extends AbstractCompiler {
 		}
 
 		if (curr.code == ident && la.code == colon || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
-			insIntoBody("ACTIONS beg:");
-			insIntoBody("beg == ");
-			inProc = false;
+			buffer.insertIntoBody("ACTIONS beg:");
+			buffer.insertIntoBody("beg == ");
+			buffer.setInProc(false);
 			while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 				// if we have macro call, inject macro tokens
 				if (curr.code == ident && macroParams.get(curr.str) != null) {
@@ -328,8 +284,8 @@ public class Parser extends AbstractCompiler {
 				}
 
 			}
-			insIntoBody("END");
-			insIntoBody("ENDACTIONS");
+			buffer.insertIntoBody("END");
+			buffer.insertIntoBody("ENDACTIONS");
 		}
 	}
 
@@ -364,9 +320,9 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void Procedure() {
-		insIntoProc("PROC ", curr.str, "() == ");
-		insIntoProc("ACTIONS beg: ");
-		insIntoProc("beg == ");
+		buffer.insertIntoProcedure("PROC ", curr.str, "() == ");
+		buffer.insertIntoProcedure("ACTIONS beg: ");
+		buffer.insertIntoProcedure("beg == ");
 
 		check(ident);
 		check(proc);
@@ -387,16 +343,16 @@ public class Parser extends AbstractCompiler {
 		check(ret);
 		check(ident);
 		check(endp);
-		insIntoProc("END");
-		insIntoProc("ENDACTIONS");
-		insIntoProc("END");
+		buffer.insertIntoProcedure("END");
+		buffer.insertIntoProcedure("ENDACTIONS");
+		buffer.insertIntoProcedure("END");
 
 	}
 
 	private void Label() {
-		insert("CALL ", curr.str);
-		insert("END");
-		insert(curr.str, " == ");
+		buffer.insert("CALL ", curr.str);
+		buffer.insert("END");
+		buffer.insert(curr.str, " == ");
 		check(ident);
 		check(colon);
 	}
@@ -637,8 +593,8 @@ public class Parser extends AbstractCompiler {
 					+ "db or dw variable or constant value for first argument, but got: " + arg1.str);
 		}
 
-		insert("temp := ", val1, ";");
-		insert("temp := temp ", operation.getOperator(), " ", val2, ";");
+		buffer.insert("temp := ", val1, ";");
+		buffer.insert("temp := temp ", operation.getOperator(), " ", val2, ";");
 
 		switch (operation) {
 		case ADDITION:
@@ -671,20 +627,20 @@ public class Parser extends AbstractCompiler {
 
 	private void div(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.DOUBLE_BYTE)) {
-			insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, ";");
-			insert("IF ", arg.str, " = 0 OR temp >= 65536 THEN");
-			insert("CALL Z");
-			insert("ELSE ");
-			insert("dx := (dx * 65536 + ax) MOD ", arg.str, ";");
-			insert("ax := temp");
-			insert("FI;");
+			buffer.insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, ";");
+			buffer.insert("IF ", arg.str, " = 0 OR temp >= 65536 THEN");
+			buffer.insert("CALL Z");
+			buffer.insert("ELSE ");
+			buffer.insert("dx := (dx * 65536 + ax) MOD ", arg.str, ";");
+			buffer.insert("ax := temp");
+			buffer.insert("FI;");
 		} else { // arg is byte
-			insert("temp := ax DIV ", arg.str, ";");
-			insert("IF ", arg.str, " = 0 OR temp >= 256 THEN");
-			insert("CALL Z");
-			insert("ELSE");
-			insert("ax := (ax MOD ", arg.str, ") * 256 + temp");
-			insert("FI;");
+			buffer.insert("temp := ax DIV ", arg.str, ";");
+			buffer.insert("IF ", arg.str, " = 0 OR temp >= 256 THEN");
+			buffer.insert("CALL Z");
+			buffer.insert("ELSE");
+			buffer.insert("ax := (ax MOD ", arg.str, ") * 256 + temp");
+			buffer.insert("FI;");
 		}
 	}
 
@@ -698,32 +654,32 @@ public class Parser extends AbstractCompiler {
 
 	private void setMulResult(Size size) {
 		if (size == Size.BYTE) {
-			insert("ax := temp;");
+			buffer.insert("ax := temp;");
 		} else { // double byte
-			insert("ax := temp MOD 65536;");
-			insert("dx := temp DIV 65536;");
+			buffer.insert("ax := temp MOD 65536;");
+			buffer.insert("dx := temp DIV 65536;");
 		}
 	}
 
 	private void setMulFlags(Size size) {
-		insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
-		insert("flag_o = 1;");
-		insert("flag_c = 1");
-		insert("ELSE");
-		insert("flag_o = 0;");
-		insert("flag_c = 0");
-		insert("FI;");
+		buffer.insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
+		buffer.insert("flag_o = 1;");
+		buffer.insert("flag_c = 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_o = 0;");
+		buffer.insert("flag_c = 0");
+		buffer.insert("FI;");
 	}
 
 	private void setResult(Token arg) {
 		if (doubleByte.get(arg.code)) {
-			insert(arg.str, " := temp;");
+			buffer.insert(arg.str, " := temp;");
 		} else if (lowByte.get(arg.code)) {
-			insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " DIV 256) * 256 + temp;");
+			buffer.insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " DIV 256) * 256 + temp;");
 		} else if (highByte.get(arg.code)) {
-			insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " MOD 256) + temp * 256;");
+			buffer.insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " MOD 256) + temp * 256;");
 		} else {
-			insert(arg.str, " := temp;");
+			buffer.insert(arg.str, " := temp;");
 		}
 	}
 
@@ -735,7 +691,7 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void setDecFlags(String val1, String val2, Size size) {
-		insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
+		buffer.insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
 		generateZeroCheck();
 		generateSignCheck(size);
 		generateSubOverflowCheck(val1, val2, size);
@@ -749,28 +705,28 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void setIncFlags(String val1, String val2, Size size) {
-		insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
+		buffer.insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
 		generateZeroCheck();
 		generateSignCheck(size);
 		generateAddOverflowCheck(val1, val2, size);
 	}
 
 	private void generateAddOverflowCheck(String val1, String val2, Size size) {
-		insert("IF ", generateGetSignBit(val1, size), " = ", generateGetSignBit(val2, size), " AND ", generateGetSignBit("temp",
-				size), " <> ", generateGetSignBit(val2, size), " THEN");
-		insert("flag_o := 1");
-		insert("ELSE");
-		insert("flag_o := 0");
-		insert("FI;");
+		buffer.insert("IF ", generateGetSignBit(val1, size), " = ", generateGetSignBit(val2, size), " AND ", generateGetSignBit(
+				"temp", size), " <> ", generateGetSignBit(val2, size), " THEN");
+		buffer.insert("flag_o := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_o := 0");
+		buffer.insert("FI;");
 	}
 
 	private void generateSubOverflowCheck(String val1, String val2, Size size) {
-		insert("IF ", generateGetSignBit(val1, size), " <> ", generateGetSignBit(val2, size), " AND ", generateGetSignBit("temp",
-				size), " = ", generateGetSignBit(val2, size), " THEN");
-		insert("flag_o := 1");
-		insert("ELSE");
-		insert("flag_o := 0");
-		insert("FI;");
+		buffer.insert("IF ", generateGetSignBit(val1, size), " <> ", generateGetSignBit(val2, size), " AND ", generateGetSignBit(
+				"temp", size), " = ", generateGetSignBit(val2, size), " THEN");
+		buffer.insert("flag_o := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_o := 0");
+		buffer.insert("FI;");
 	}
 
 	private String generateGetSignBit(String val, Size size) {
@@ -778,37 +734,37 @@ public class Parser extends AbstractCompiler {
 	}
 
 	private void generateZeroCheck() {
-		insert("IF temp = 0 THEN");
-		insert("flag_z := 1");
-		insert("ELSE");
-		insert("flag_z := 0");
-		insert("FI;");
+		buffer.insert("IF temp = 0 THEN");
+		buffer.insert("flag_z := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_z := 0");
+		buffer.insert("FI;");
 	}
 
 	private void generateSignCheck(Size size) {
-		insert("IF ", generateGetSignBit("temp", size), " = 1 THEN");
-		insert("flag_s := 1");
-		insert("ELSE");
-		insert("flag_s := 0");
-		insert("FI;");
+		buffer.insert("IF ", generateGetSignBit("temp", size), " = 1 THEN");
+		buffer.insert("flag_s := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_s := 0");
+		buffer.insert("FI;");
 	}
 
 	private void generateAddCarryCheck(Size size) {
-		insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
-		insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
-		insert("flag_c := 1");
-		insert("ELSE");
-		insert("flag_c := 0");
-		insert("FI;");
+		buffer.insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
+		buffer.insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
+		buffer.insert("flag_c := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_c := 0");
+		buffer.insert("FI;");
 	}
 
 	private void generateSubCarryCheck(Size size) {
-		insert("IF temp < 0 THEN");
-		insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
-		insert("flag_c := 1");
-		insert("ELSE");
-		insert("flag_c := 0");
-		insert("FI;");
+		buffer.insert("IF temp < 0 THEN");
+		buffer.insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
+		buffer.insert("flag_c := 1");
+		buffer.insert("ELSE");
+		buffer.insert("flag_c := 0");
+		buffer.insert("FI;");
 	}
 
 	/**
@@ -825,7 +781,7 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void xchg(Token arg1, Token arg2) {
-		insert("< ", generateMov(arg1, arg2), ", ", generateMov(arg2, arg1), " >;");
+		buffer.insert("< ", generateMov(arg1, arg2), ", ", generateMov(arg2, arg1), " >;");
 	}
 
 	private void mov(Token arg1, Token arg2) {
@@ -834,7 +790,7 @@ public class Parser extends AbstractCompiler {
 		if (arg2.code == atdata || arg2.code == offset) {
 			return;
 		}
-		insert(generateMov(arg1, arg2), ";");
+		buffer.insert(generateMov(arg1, arg2), ";");
 	}
 
 	private String generateMov(Token arg1, Token arg2) {
@@ -959,12 +915,12 @@ public class Parser extends AbstractCompiler {
 			check(interr);
 			arg = Argument();
 			if (arg.code == number && arg.val == 33) { // 33 == 21h
-				insert("temp := ax DIV 256;");
-				insert("IF temp = 2 THEN");
-				insert("PRINT(@ASCII_To_String(dx MOD 256))");
-				insert("ELSIF temp = 76 THEN"); // 4c == 76
-				insert("CALL Z");
-				insert("FI;");
+				buffer.insert("temp := ax DIV 256;");
+				buffer.insert("IF temp = 2 THEN");
+				buffer.insert("PRINT(@ASCII_To_String(dx MOD 256))");
+				buffer.insert("ELSIF temp = 76 THEN"); // 4c == 76
+				buffer.insert("CALL Z");
+				buffer.insert("FI;");
 			} else {
 				// error
 			}
@@ -972,21 +928,21 @@ public class Parser extends AbstractCompiler {
 		case loop:
 			check(loop);
 			arg = Argument();
-			insert("cx := cx - 1;");
-			insert("IF cx <> 0 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("cx := cx - 1;");
+			buffer.insert("IF cx <> 0 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case push:
 			check(push);
 			arg = Argument();
-			insert("PUSH (stack, temp);");
+			buffer.insert("PUSH (stack, temp);");
 			setResult(arg);
 			break;
 		case pop:
 			check(pop);
 			arg = Argument();
-			insert("POP (temp, stack);");
+			buffer.insert("POP (temp, stack);");
 			setResult(arg);
 			break;
 		case inc:
@@ -1002,7 +958,7 @@ public class Parser extends AbstractCompiler {
 		case call:
 			check(call);
 			arg = Argument();
-			insert(arg.str, "();");
+			buffer.insert(arg.str, "();");
 			break;
 		case neg:
 			check(neg);
@@ -1022,70 +978,70 @@ public class Parser extends AbstractCompiler {
 		case jmp:
 			check(jmp);
 			arg = Argument();
-			insert("CALL ", arg.str, ";");
+			buffer.insert("CALL ", arg.str, ";");
 			break;
 		case ja:
 			check(ja);
 			arg = Argument();
-			insert("IF flag_c = 0 AND flag_z = 0 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_c = 0 AND flag_z = 0 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jae:
 			check(jae);
 			arg = Argument();
-			insert("IF flag_c = 0 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_c = 0 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jb:
 			check(jb);
 			arg = Argument();
-			insert("IF flag_c = 1 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_c = 1 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jbe:
 			check(jbe);
 			arg = Argument();
-			insert("IF flag_c = 1 AND flag_z = 1 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_c = 1 AND flag_z = 1 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jg:
 			check(jg);
 			arg = Argument();
-			insert("IF flag_z = 0 AND flag_s = flag_o THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_z = 0 AND flag_s = flag_o THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jge:
 			check(jge);
 			arg = Argument();
-			insert("IF flag_s = flag_o THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_s = flag_o THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jl:
 			check(jl);
 			arg = Argument();
-			insert("IF flag_s <> flag_o THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_s <> flag_o THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case jle:
 			check(jle);
 			arg = Argument();
-			insert("IF flag_z = 1 OR flag_s <> flag_o THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_z = 1 OR flag_s <> flag_o THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		case je:
 			check(je);
 			arg = Argument();
-			insert("IF flag_z = 1 THEN");
-			insert("CALL ", arg.str);
-			insert("FI;");
+			buffer.insert("IF flag_z = 1 THEN");
+			buffer.insert("CALL ", arg.str);
+			buffer.insert("FI;");
 			break;
 		default:
 			throw new IllegalArgumentException("Unsupporeted one argument instruction: " + curr.str);
