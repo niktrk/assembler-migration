@@ -1,8 +1,7 @@
 package main;
 
 /**
- * Enumeration class representing some of assembler instructions which are basically arithmetic
- * operations.
+ * Enumeration class representing some of assembler instructions which are basically arithmetic operations.
  * 
  * @author Nikola Trkulja
  * @author Igor Let
@@ -21,7 +20,9 @@ public enum Operation {
 
 	MULTIPLICATION("*"),
 
-	DIVISION("/");
+	DIVISION("/"),
+
+	NEGATION("-");
 
 	private final String operator;
 

@@ -14,7 +14,7 @@ import java.util.Map;
  * @author Igor Let
  * @author Nikola Trkulja
  * 
- * @date 2. 5. 2011.
+ * @date 02. 05. 2011.
  */
 public class Parser extends AbstractCompiler {
 
@@ -59,8 +59,6 @@ public class Parser extends AbstractCompiler {
 		twoArgComm.set(cmp);
 		twoArgComm.set(add);
 		twoArgComm.set(sub);
-		twoArgComm.set(shl);
-		twoArgComm.set(shr);
 
 		registers = new BitSet();
 		registers.set(ax);
@@ -178,12 +176,20 @@ public class Parser extends AbstractCompiler {
 		return sc.next();
 	}
 
+	/**
+	 * Main parser method used for parsing of input file. Returns string representation of generated action system.
+	 * 
+	 * @return
+	 */
 	public String parse() {
 		Program();
 		buffer.close();
 		return buffer.toString();
 	}
 
+	/**
+	 * Parse Program. Generate stack if there is stack segment.
+	 */
 	private void Program() {
 		if (curr.code == title) {
 			check(title);
@@ -202,6 +208,9 @@ public class Parser extends AbstractCompiler {
 		Code();
 	}
 
+	/**
+	 * Parse data. Generate variable and array declarations.
+	 */
 	private void Data() {
 		boolean array;
 		check(data);
@@ -238,6 +247,11 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Parse value. Insert obtained value to declaration of action system.
+	 * 
+	 * @param varName
+	 */
 	private void Value(String varName) {
 		if (curr.code == number) {
 			buffer.insertIntoDeclaration(Integer.toString(toUnsigned(curr.val, variableSize.get(getVariableName(varName)))));
@@ -252,6 +266,9 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Parse code.
+	 */
 	private void Code() {
 		check(code);
 
@@ -289,11 +306,17 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Parse macro. Read formal parameters of macro and map them with macro name as key. Read macro tokens and map them
+	 * with macro name as key.
+	 */
 	private void Macro() {
 		String macroName = curr.str;
 		List<Token> currentMacroParams = new ArrayList<Token>();
 		check(ident);
 		check(macro);
+		// FIXME treba proveriti, moguce da kada se na pocetku makroa bez parametara nalazi poziv makroa bez parametara
+		// ovo ne radi
 		if (curr.code == ident && la.code != colon) {
 			currentMacroParams.add(curr);
 			check(ident);
@@ -319,6 +342,9 @@ public class Parser extends AbstractCompiler {
 		check(endm);
 	}
 
+	/**
+	 * Parse procedure. Assembler procedure is translated to WSL procedure.
+	 */
 	private void Procedure() {
 		buffer.insertIntoProcedure("PROC ", curr.str, "() == ");
 		buffer.insertIntoProcedure("ACTIONS beg: ");
@@ -349,6 +375,9 @@ public class Parser extends AbstractCompiler {
 
 	}
 
+	/**
+	 * Parse label. Generate code for calling new action system.
+	 */
 	private void Label() {
 		buffer.insert("CALL ", curr.str);
 		buffer.insert("END");
@@ -357,6 +386,12 @@ public class Parser extends AbstractCompiler {
 		check(colon);
 	}
 
+	/**
+	 * Method called when we encounter macro call inside procedure, statement or another macro. This method uses list of
+	 * formal parameters and macro tokens (retrieved from the maps using macro name) to generate actual tokens of a
+	 * macro (where every formal parameter is replaced with actual parameter). After that tokens curr and la are
+	 * appended to the end of macro tokens list and list iterator is set to the beginning of newly formed list.
+	 */
 	private void injectMacro() {
 		if (macroParams.get(curr.str) != null) {
 
@@ -402,6 +437,10 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Parse statement. Only one argument or two argument instruction can follow. Macros can also be called from
+	 * statement but their tokens are already injected in this moment.
+	 */
 	private void Statement() {
 		if (oneArgComm.get(curr.code)) {
 			OneArgStatement();
@@ -412,6 +451,11 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Get arguments of instructions with two parameters. Returns two element {@link Token} array.
+	 * 
+	 * @return
+	 */
 	private Token[] getArguments() {
 		Token[] ret = new Token[2];
 		ret[0] = Argument();
@@ -420,6 +464,14 @@ public class Parser extends AbstractCompiler {
 		return ret;
 	}
 
+	/**
+	 * Return unsigned version of given number using size parameter. For example, if size is 8bits and number is -3
+	 * method returns 253 (=256-3). When considering bit representation of -3 and 253 those two numbers are the same.
+	 * 
+	 * @param num
+	 * @param size
+	 * @return
+	 */
 	private int toUnsigned(int num, Size size) {
 		if (num >= 0) {
 			return num;
@@ -427,6 +479,10 @@ public class Parser extends AbstractCompiler {
 		return (1 << size.getSize()) + num;
 	}
 
+	/**
+	 * Parse and generate code for two arguments instructions and that are <strong>mov</strong>, <strong>xchg</strong>,
+	 * <strong>cmp</strong>, <strong>add</strong>, <strong>sub</strong>.
+	 */
 	private void TwoArgStatement() {
 		Token[] arguments;
 		switch (curr.code) {
@@ -455,25 +511,28 @@ public class Parser extends AbstractCompiler {
 			arguments = getArguments();
 			sub(arguments[0], arguments[1]);
 			break;
-		case shl:
-			check(shl);
-			arguments = getArguments();
-			int arg2Val = (1 << arguments[1].val);
-			// mul(arguments[0], new Token(number, arg2Val,
-			// String.valueOf(arg2Val)));
-			break;
-		case shr:
-			check(shr);
-			arguments = getArguments();
-			arg2Val = (1 << arguments[1].val);
-			// div(arguments[0], new Token(number, arg2Val,
-			// String.valueOf(arg2Val)));
-			break;
 		default:
 			throw new IllegalArgumentException("Unsupported two argument instruction: " + curr.str);
 		}
 	}
 
+	/**
+	 * Generates code for assembler <strong>cmp</strong> instruction which performs subtraction of given arguments but
+	 * does not store the result back into the destination operand. Example: <code>cmp dest,src</code> is doing
+	 * following dest - src. Possible combinations of arguments:
+	 * <ul>
+	 * <li>reg - reg</li>
+	 * <li>mem - reg</li>
+	 * <li>reg - mem</li>
+	 * <li>reg - immediate data</li>
+	 * <li>mem - immediate data</li>
+	 * </ul>
+	 * Both arguments must be the same size. Cmp instruction affects zero, carry, overflow and sign (and some other not
+	 * important for us) flags.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void cmp(Token arg1, Token arg2) {
 		arithmeticInstruction(arg1, arg2, Operation.COMPARE);
 	}
@@ -518,6 +577,15 @@ public class Parser extends AbstractCompiler {
 		arithmeticInstruction(arg1, arg2, Operation.SUBTRACTION);
 	}
 
+	/**
+	 * Generic arithmetic instruction code generation method, used for generation of <strong>add</strong>,
+	 * <strong>sub</strong>, <strong>inc</strong>, <strong>dec</strong>, <strong>cmp</strong>, <strong>neg</strong> and
+	 * <strong>mul</strong>. instruction.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 * @param operation
+	 */
 	private void arithmeticInstruction(Token arg1, Token arg2, Operation operation) {
 		String val1, val2;
 		Size size;
@@ -588,6 +656,30 @@ public class Parser extends AbstractCompiler {
 						+ "expeted to get register (16bit or 8bit) or constant value for second argument, but got: " + arg2.str);
 			}
 
+		} else if (arg1.code == number) { // only if negation is the operation
+
+			if (Operation.NEGATION.equals(operation)) {
+				val1 = arg1.str;
+
+				if (doubleByte.get(arg2.code)) {// reg
+					val2 = arg2.str;
+					size = Size.DOUBLE_BYTE;
+				} else if (singleByte.get(arg2.code)) {// reg
+					val2 = getByteRegister(arg2.code);
+					size = Size.BYTE;
+				} else if (isVariable(arg2.str)) {// mem (db or dw)
+					val2 = arg2.str;
+					size = variableSize.get(getVariableName(arg2.str));
+				} else {
+					throw new IllegalArgumentException("First argument of instruction is number, "
+							+ "expeted to get register (16bit or 8bit), db or dw variable for second argument, but got: "
+							+ arg2.str);
+				}
+
+			} else {
+				throw new IllegalArgumentException("Expected to get negation for operation, but got: " + operation.toString());
+			}
+
 		} else {
 			throw new IllegalArgumentException("Expeted to get 8bit (high or low part of) register, 16bit register, "
 					+ "db or dw variable or constant value for first argument, but got: " + arg1.str);
@@ -601,6 +693,7 @@ public class Parser extends AbstractCompiler {
 			setAddFlags(val1, val2, size);
 			setResult(arg1);
 			break;
+		case NEGATION:
 		case SUBTRACTION:
 			setSubFlags(val1, val2, size);
 			setResult(arg1);
@@ -642,7 +735,8 @@ public class Parser extends AbstractCompiler {
 			buffer.insert("ax := (ax MOD ", arg.str, ") * 256 + temp");
 			buffer.insert("FI;");
 		} else {
-			// error
+			throw new IllegalArgumentException("Expected to get register (16bit or 8bit) or variable (db or dw), but got: "
+					+ arg.str);
 		}
 	}
 
@@ -652,7 +746,8 @@ public class Parser extends AbstractCompiler {
 		} else if (singleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.BYTE)) {
 			arithmeticInstruction(new Token(al, 0, str[al]), arg, Operation.MULTIPLICATION);
 		} else {
-			// error
+			throw new IllegalArgumentException("Expected to get register (16bit or 8bit) or variable (db or dw), but got: "
+					+ arg.str);
 		}
 	}
 
@@ -779,7 +874,7 @@ public class Parser extends AbstractCompiler {
 	 * <li>mem - reg</li>
 	 * <li>reg - mem</li>
 	 * </ul>
-	 * Both locations must be of the same size.
+	 * Mov instruction does not affect any flag. Both locations must be of the same size.
 	 * 
 	 * @param arg1
 	 * @param arg2
@@ -788,6 +883,21 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("< ", generateMov(arg1, arg2), ", ", generateMov(arg2, arg1), " >;");
 	}
 
+	/**
+	 * Generates code for assembler <strong>mov</strong> instruction which performs assignment. Example:
+	 * <code>mov dest,src</code> is doing following dest := src. Possible arguments:
+	 * <ul>
+	 * <li>reg - reg</li>
+	 * <li>mem - reg</li>
+	 * <li>reg - mem</li>
+	 * <li>reg - immediate data</li>
+	 * <li>mem - immediate data</li>
+	 * </ul>
+	 * Mov instruction does not affect any flag. Both locations must be of the same size.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void mov(Token arg1, Token arg2) {
 		// FIXME create 16bit variable @data or smth like that and initialize to random value, to
 		// simulate @data pointer
@@ -797,68 +907,92 @@ public class Parser extends AbstractCompiler {
 		buffer.insert(generateMov(arg1, arg2), ";");
 	}
 
+	/**
+	 * Generic assignment code generation method, used for generation of <strong>mov</strong> and <strong>xchg</strong>
+	 * instruction.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 * @return
+	 */
 	private String generateMov(Token arg1, Token arg2) {
 		String val2;
-		if (doubleByte.get(arg1.code)) {
+		if (doubleByte.get(arg1.code)) { // reg
 
-			if (doubleByte.get(arg2.code)) {
+			if (doubleByte.get(arg2.code)) { // reg
 				val2 = str[arg2.code];
-			} else if (isVariable(arg2.str)) { // db or dw variable
+			} else if (isVariable(arg2.str)) { // mem (dw)
 				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 16bit register, "
+						+ "expeted to get 16bit register, dw variable or constant value for second argument, but got: "
+						+ arg2.str);
 			}
 
 			return arg1.str + " := " + val2;
 
-		} else if (highByte.get(arg1.code)) {
+		} else if (highByte.get(arg1.code)) { // reg
 
-			if (highByte.get(arg2.code)) {
+			if (highByte.get(arg2.code)) { // reg
 				val2 = "(" + getXRegister(arg2.code) + " DIV 256) * 256";
-			} else if (lowByte.get(arg2.code)) {
+			} else if (lowByte.get(arg2.code)) { // reg
 				val2 = "(" + getXRegister(arg2.code) + " MOD 256) * 256";
-			} else if (isVariable(arg2.str)) { // db variable
+			} else if (isVariable(arg2.str)) { // mem (db)
 				val2 = arg2.str + " * 256";
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val) + " * 256";
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 8bit (high part of) register, "
+						+ "expeted to get 8bit (high or low part of) register, "
+						+ "db variable or constant value for second argument, but got: " + arg2.str);
 			}
 
 			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code) + " MOD 256) + " + val2;
 
-		} else if (lowByte.get(arg1.code)) {
+		} else if (lowByte.get(arg1.code)) { // reg
 
-			if (lowByte.get(arg2.code)) {
+			if (lowByte.get(arg2.code)) { // reg
 				val2 = "(" + getXRegister(arg2.code) + " MOD 256)";
-			} else if (highByte.get(arg2.code)) {
+			} else if (highByte.get(arg2.code)) { // reg
 				val2 = "(" + getXRegister(arg2.code) + " DIV 256)";
-			} else if (isVariable(arg2.str)) { // db variable
+			} else if (isVariable(arg2.str)) { // mem (db)
 				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 8bit (low part of) register, "
+						+ "expeted to get 8bit (high or low part of) register, "
+						+ "db variable or constant value for second argument, but got: " + arg2.str);
 			}
 
 			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code) + " DIV 256) * 256 + " + val2;
 
-		} else { // db or dw variable
+		} else if (isVariable(arg1.str)) { // mem (db or dw)
 
-			if (doubleByte.get(arg2.code)) {
+			if (doubleByte.get(arg2.code)) { // reg
 				val2 = arg2.str;
-			} else if (lowByte.get(arg2.code)) {
+			} else if (lowByte.get(arg2.code)) { // reg
 				val2 = getXRegister(arg2.code) + " MOD 256";
-			} else if (highByte.get(arg2.code)) {
+			} else if (highByte.get(arg2.code)) { // reg
 				val2 = getXRegister(arg2.code) + " DIV 256";
-			} else if (isVariable(arg2.str)) { // db or dw variable
-				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, variableSize.get(getVariableName(arg1.str)));
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is db or dw variable, "
+						+ "expeted to get register (16bit or 8bit) or constant value for second argument, but got: " + arg2.str);
 			}
 
 			return arg1.str + " := " + val2;
 
+		} else {
+			throw new IllegalArgumentException("Expeted to get 8bit (high or low part of) register, 16bit register, "
+					+ "db or dw variable for first argument, but got: " + arg1.str);
 		}
 	}
 
@@ -899,7 +1033,7 @@ public class Parser extends AbstractCompiler {
 	 * <li>mem</li>
 	 * </ul>
 	 * Dec instruction affects zero, overflow and sign (and some other not important for us) flags. Flags are set in the
-	 * same way as for <code>dec dest,1</code> except value of carry flag is not changed.
+	 * same way as for <code>sub dest,1</code> except value of carry flag is not changed.
 	 * 
 	 * @param arg1
 	 * @param arg2
@@ -908,8 +1042,21 @@ public class Parser extends AbstractCompiler {
 		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
 	}
 
+	/**
+	 * Generates code for assembler <strong>neg</strong> instruction which performs negation of given argument. Example:
+	 * <code>neg dest</code> is doing following dest := 0 - dest. Possible arguments:
+	 * <ul>
+	 * <li>reg</li>
+	 * <li>mem</li>
+	 * </ul>
+	 * Neg instruction affects zero, overflow, carry and sign (and some other not important for us) flags. Flags are set
+	 * in the same way as for <code>sub 0,dest</code>.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void neg(Token arg) {
-		arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.SUBTRACTION);
+		arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.NEGATION);
 	}
 
 	private void OneArgStatement() {
