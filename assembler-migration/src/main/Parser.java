@@ -261,6 +261,7 @@ public class Parser extends AbstractCompiler {
 			varName = curr.str;
 			check(ident);
 			check(db, dw);
+			// TODO mozemo mozda dodati onaj upitnik shit
 			if (curr.code == number || curr.code == string) {
 				if (la.code == comma) {
 					insIntoDecl("< ");
@@ -275,6 +276,8 @@ public class Parser extends AbstractCompiler {
 				if (array) {
 					insIntoDecl(" >");
 				}
+			} else {
+				// error
 			}
 		}
 	}
@@ -288,6 +291,8 @@ public class Parser extends AbstractCompiler {
 			insIntoDecl(curr.str);
 			insIntoDecl("\"");
 			check(string);
+		} else {
+			// error
 		}
 	}
 
@@ -537,6 +542,22 @@ public class Parser extends AbstractCompiler {
 		arithmeticInstruction(arg1, arg2, Operation.ADDITION);
 	}
 
+	/**
+	 * Generates code for assembler <strong>sub</strong> instruction which performs subtraction of given arguments.
+	 * Example: <code>sub dest,src</code> is doing following dest := dest - src. Possible combinations of arguments:
+	 * <ul>
+	 * <li>reg - reg</li>
+	 * <li>mem - reg</li>
+	 * <li>reg - mem</li>
+	 * <li>reg - immediate data</li>
+	 * <li>mem - immediate data</li>
+	 * </ul>
+	 * Both arguments must be the same size. Sub instruction affects zero, carry, overflow and sign (and some other not
+	 * important for us) flags.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void sub(Token arg1, Token arg2) {
 		arithmeticInstruction(arg1, arg2, Operation.SUBTRACTION);
 	}
@@ -544,60 +565,76 @@ public class Parser extends AbstractCompiler {
 	private void arithmeticInstruction(Token arg1, Token arg2, Operation operation) {
 		String val1, val2;
 		Size size;
-		if (doubleByte.get(arg1.code)) {
+		if (doubleByte.get(arg1.code)) {// reg
 			size = Size.DOUBLE_BYTE;
 			val1 = arg1.str;
 
-			if (doubleByte.get(arg2.code)) {
+			if (doubleByte.get(arg2.code)) {// reg
 				val2 = arg2.str;
-			} else if (isVariable(arg2.str)) {// dw
+			} else if (isVariable(arg2.str)) {// mem (dw)
 				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 16bit register, "
+						+ "expeted to get 16bit register, dw variable or constant value for second argument, but got: "
+						+ arg2.str);
 			}
 
-		} else if (highByte.get(arg1.code)) {
+		} else if (highByte.get(arg1.code)) {// reg
 			size = Size.BYTE;
 			val1 = getXRegister(arg1.code) + " DIV 256";
 
-			if (singleByte.get(arg2.code)) {
+			if (singleByte.get(arg2.code)) {// reg
 				val2 = getByteRegister(arg2.code);
-			} else if (isVariable(arg2.str)) {// db
+			} else if (isVariable(arg2.str)) {// mem (db)
 				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 8bit (high part of) register, "
+						+ "expeted to get 8bit (high or low part of) register, "
+						+ "db variable or constant value for second argument, but got: " + arg2.str);
 			}
 
-		} else if (lowByte.get(arg1.code)) {
+		} else if (lowByte.get(arg1.code)) {// reg
 			size = Size.BYTE;
 			val1 = getXRegister(arg1.code) + " MOD 256";
 
-			if (singleByte.get(arg2.code)) {
+			if (singleByte.get(arg2.code)) {// reg
 				val2 = getByteRegister(arg2.code);
-			} else if (isVariable(arg2.str)) {// db
+			} else if (isVariable(arg2.str)) {// mem (db)
 				val2 = arg2.str;
-			} else { // const
+			} else if (arg2.code == number) { // immediate (const)
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is 8bit (low part of) register, "
+						+ "expeted to get 8bit (high or low part of) register, "
+						+ "db variable or constant value for second argument, but got: " + arg2.str);
 			}
 
-		} else { // db or dw variable
+		} else if (isVariable(arg1.str)) { // mem (db or dw)
 			size = variableSize.get(getVariableName(arg1.str));
 			val1 = arg1.str;
 
-			if (doubleByte.get(arg2.code)) {
+			if (doubleByte.get(arg2.code)) {// reg
 				val2 = arg2.str;
-			} else if (singleByte.get(arg2.code)) {
+			} else if (singleByte.get(arg2.code)) {// reg
 				val2 = getByteRegister(arg2.code);
-			} else if (isVariable(arg2.str)) {
-				val2 = arg2.str;
-			} else {
+			} else if (arg2.code == number) {// immediate (const)
 				int val = toUnsigned(arg2.val, size);
 				val2 = Integer.toString(val);
+			} else {
+				throw new IllegalArgumentException("First argument of instruction is db or dw variable, "
+						+ "expeted to get register (16bit or 8bit) or constant value for second argument, but got: " + arg2.str);
 			}
 
+		} else {
+			throw new IllegalArgumentException("Expeted to get 8bit (high or low part of) register, 16bit register, "
+					+ "db or dw variable or constant value for first argument, but got: " + arg1.str);
 		}
 
 		insert("temp := ", val1, ";");
@@ -877,10 +914,36 @@ public class Parser extends AbstractCompiler {
 		return var;
 	}
 
+	/**
+	 * Generates code for assembler <strong>inc</strong> instruction which performs incrementation of given argument by
+	 * one. Example: <code>inc dest</code> is doing following dest := dest + 1. Possible arguments:
+	 * <ul>
+	 * <li>reg</li>
+	 * <li>mem</li>
+	 * </ul>
+	 * Inc instruction affects zero, overflow and sign (and some other not important for us) flags. Flags are set in the
+	 * same way as for <code>add dest,1</code> except value of carry flag is not changed.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void inc(Token arg) {
 		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.INCREMENTATION);
 	}
 
+	/**
+	 * Generates code for assembler <strong>dec</strong> instruction which performs decrementation of given argument by
+	 * one. Example: <code>dec dest</code> is doing following dest := dest - 1. Possible arguments:
+	 * <ul>
+	 * <li>reg</li>
+	 * <li>mem</li>
+	 * </ul>
+	 * Dec instruction affects zero, overflow and sign (and some other not important for us) flags. Flags are set in the
+	 * same way as for <code>dec dest,1</code> except value of carry flag is not changed.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void dec(Token arg) {
 		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
 	}
