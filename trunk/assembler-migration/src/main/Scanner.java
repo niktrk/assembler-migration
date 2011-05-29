@@ -221,10 +221,6 @@ public class Scanner extends AbstractCompiler {
 					ret.code = div;
 				} else if (str.equals("neg")) {
 					ret.code = neg;
-				} else if (str.equals("shl")) {
-					ret.code = shl;
-				} else if (str.equals("shr")) {
-					ret.code = shr;
 				} else if (str.equals("ax")) {
 					ret.code = ax;
 				} else if (str.equals("ah")) {
