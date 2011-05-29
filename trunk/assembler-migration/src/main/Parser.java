@@ -720,6 +720,20 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Generates code for assembler <strong>div</strong> instruction which performs unsigned division. Behavior:
+	 * <code>div arg</code> is doing following al := ax DIV arg, ah := ax MOD arg if arg is 8bit register or variable;
+	 * ax := dx:ax DIV arg, dx := dx:ax MOD arg if arg is 16bit register or variable. Possible arguments:
+	 * <ul>
+	 * <li>reg</li>
+	 * <li>mem</li>
+	 * </ul>
+	 * Div instruction affects zero, overflow, carry and sign (and some other not important for us) flags and they are
+	 * all undefined after div operation.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void div(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.DOUBLE_BYTE)) {
 			buffer.insert("temp :=  (dx * 65536 + ax) DIV ", arg.str, ";");
@@ -742,6 +756,20 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Generates code for assembler <strong>mul</strong> instruction which performs unsigned multiplication. Behavior:
+	 * <code>mul arg</code> is doing following ax := al * arg if arg is 8bit register or variable; dx:ax := ax * arg if
+	 * arg is 16bit register or variable. Possible arguments:
+	 * <ul>
+	 * <li>reg</li>
+	 * <li>mem</li>
+	 * </ul>
+	 * Mul instruction affects zero, overflow, carry and sign (and some other not important for us) flags. Sign and zero
+	 * flags do not contain meaningful values after the execution of mul instructions
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void mul(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.DOUBLE_BYTE)) {
 			arithmeticInstruction(new Token(ax, 0, str[ax]), arg, Operation.MULTIPLICATION);
@@ -753,6 +781,11 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Generate set result code after mul instruction.
+	 * 
+	 * @param size
+	 */
 	private void setMulResult(Size size) {
 		if (size == Size.BYTE) {
 			buffer.insert("ax := temp;");
@@ -762,6 +795,11 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Generate set flag code after mul instruction.
+	 * 
+	 * @param size
+	 */
 	private void setMulFlags(Size size) {
 		buffer.insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
 		buffer.insert("flag_o = 1;");
@@ -772,6 +810,11 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate set result code after add,sub,dec or inc instruction.
+	 * 
+	 * @param arg
+	 */
 	private void setResult(Token arg) {
 		if (doubleByte.get(arg.code)) {
 			buffer.insert(arg.str, " := temp;");
@@ -779,11 +822,18 @@ public class Parser extends AbstractCompiler {
 			buffer.insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " DIV 256) * 256 + temp;");
 		} else if (highByte.get(arg.code)) {
 			buffer.insert(getXRegister(arg.code), " := (", getXRegister(arg.code), " MOD 256) + temp * 256;");
-		} else {
+		} else if (isVariable(arg.str)) {
 			buffer.insert(arg.str, " := temp;");
+		} else {
+			// error
 		}
 	}
 
+	/**
+	 * Generate set flag code after sub instruction.
+	 * 
+	 * @param size
+	 */
 	private void setSubFlags(String val1, String val2, Size size) {
 		generateSubCarryCheck(size);
 		generateZeroCheck();
@@ -791,6 +841,11 @@ public class Parser extends AbstractCompiler {
 		generateSubOverflowCheck(val1, val2, size);
 	}
 
+	/**
+	 * Generate set flag code after dec instruction.
+	 * 
+	 * @param size
+	 */
 	private void setDecFlags(String val1, String val2, Size size) {
 		buffer.insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
 		generateZeroCheck();
@@ -798,6 +853,11 @@ public class Parser extends AbstractCompiler {
 		generateSubOverflowCheck(val1, val2, size);
 	}
 
+	/**
+	 * Generate set flag code after add instruction.
+	 * 
+	 * @param size
+	 */
 	private void setAddFlags(String val1, String val2, Size size) {
 		generateAddCarryCheck(size);
 		generateZeroCheck();
@@ -805,6 +865,11 @@ public class Parser extends AbstractCompiler {
 		generateAddOverflowCheck(val1, val2, size);
 	}
 
+	/**
+	 * Generate set flag code after inc instruction.
+	 * 
+	 * @param size
+	 */
 	private void setIncFlags(String val1, String val2, Size size) {
 		buffer.insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
 		generateZeroCheck();
@@ -812,6 +877,11 @@ public class Parser extends AbstractCompiler {
 		generateAddOverflowCheck(val1, val2, size);
 	}
 
+	/**
+	 * Generate set overflow check code after add instruction.
+	 * 
+	 * @param size
+	 */
 	private void generateAddOverflowCheck(String val1, String val2, Size size) {
 		buffer.insert("IF ", generateGetSignBit(val1, size), " = ", generateGetSignBit(val2, size), " AND ", generateGetSignBit(
 				"temp", size), " <> ", generateGetSignBit(val2, size), " THEN");
@@ -821,6 +891,11 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate set overflow check code after sub instruction.
+	 * 
+	 * @param size
+	 */
 	private void generateSubOverflowCheck(String val1, String val2, Size size) {
 		buffer.insert("IF ", generateGetSignBit(val1, size), " <> ", generateGetSignBit(val2, size), " AND ", generateGetSignBit(
 				"temp", size), " = ", generateGetSignBit(val2, size), " THEN");
@@ -830,10 +905,20 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate get sign bit code of given value with specified size.
+	 * 
+	 * @param size
+	 */
 	private String generateGetSignBit(String val, Size size) {
 		return "(((" + val + ") DIV 2**" + Integer.toString(size.getSize() - 1) + ") MOD 2)";
 	}
 
+	/**
+	 * Generate zero check code.
+	 * 
+	 * @param size
+	 */
 	private void generateZeroCheck() {
 		buffer.insert("IF temp = 0 THEN");
 		buffer.insert("flag_z := 1");
@@ -842,6 +927,11 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate sign check code.
+	 * 
+	 * @param size
+	 */
 	private void generateSignCheck(Size size) {
 		buffer.insert("IF ", generateGetSignBit("temp", size), " = 1 THEN");
 		buffer.insert("flag_s := 1");
@@ -850,6 +940,11 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate carry check after add instruction.
+	 * 
+	 * @param size
+	 */
 	private void generateAddCarryCheck(Size size) {
 		buffer.insert("IF temp >= 2**", Integer.toString(size.getSize()), " THEN");
 		buffer.insert("temp := temp MOD 2**", Integer.toString(size.getSize()), ";");
@@ -859,6 +954,11 @@ public class Parser extends AbstractCompiler {
 		buffer.insert("FI;");
 	}
 
+	/**
+	 * Generate carry check after sub instruction.
+	 * 
+	 * @param size
+	 */
 	private void generateSubCarryCheck(Size size) {
 		buffer.insert("IF temp < 0 THEN");
 		buffer.insert("temp := temp + (2**", Integer.toString(size.getSize()), ");");
@@ -998,10 +1098,23 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Check if given string provided as argument is name of variable.
+	 * 
+	 * @param var
+	 * @return
+	 */
 	private boolean isVariable(String var) {
 		return variableSize.get(getVariableName(var)) != null;
 	}
 
+	/**
+	 * Get variable name. Needed when we have string like this <code>array[bp+si+1]</code> two get only "array" which is
+	 * name of variable.
+	 * 
+	 * @param var
+	 * @return
+	 */
 	private String getVariableName(String var) {
 		int index = var.indexOf('[');
 		if (index != -1) {
@@ -1061,6 +1174,13 @@ public class Parser extends AbstractCompiler {
 		arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.NEGATION);
 	}
 
+	/**
+	 * Parse and generate code for one argument instructions and that are <strong>int</strong>, <strong>loop</strong>,
+	 * <strong>push</strong>, <strong>pop</strong>, <strong>inc</strong>, <strong>dec</strong>, <strong>call</strong>,
+	 * <strong>neg</strong>, <strong>mul</strong>, <strong>div</strong>, <strong>jmp</strong>, <strong>ja</strong>,
+	 * <strong>jae</strong>, <strong>jb</strong>, <strong>jbe</strong>, <strong>jg</strong>, <strong>jge</strong>,
+	 * <strong>jl</strong>, <strong>jle</strong>, <strong>je</strong>.
+	 */
 	private void OneArgStatement() {
 		Token arg = new Token();
 		switch (curr.code) {
@@ -1090,12 +1210,14 @@ public class Parser extends AbstractCompiler {
 			check(push);
 			arg = Argument();
 			buffer.insert("PUSH (stack, temp);");
+			// FIXME zasto nam etreba ovaj set result
 			setResult(arg);
 			break;
 		case pop:
 			check(pop);
 			arg = Argument();
 			buffer.insert("POP (temp, stack);");
+			// FIXME zasto nam etreba ovaj set result
 			setResult(arg);
 			break;
 		case inc:
@@ -1201,6 +1323,11 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Parse arguemnt and return its token.
+	 * 
+	 * @return
+	 */
 	private Token Argument() {
 		Token ret = new Token();
 		if (curr.code == ident) {
@@ -1244,12 +1371,22 @@ public class Parser extends AbstractCompiler {
 		return ret;
 	}
 
+	/**
+	 * Parse number and return number token.
+	 * 
+	 * @return
+	 */
 	private Token Number() {
 		Token ret = curr;
 		check(number);
 		return ret;
 	}
 
+	/**
+	 * Parse register and return register token.
+	 * 
+	 * @return
+	 */
 	private Token Register() {
 		Token ret = new Token();
 		switch (curr.code) {
