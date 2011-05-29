@@ -634,21 +634,25 @@ public class Parser extends AbstractCompiler {
 			buffer.insert("dx := (dx * 65536 + ax) MOD ", arg.str, ";");
 			buffer.insert("ax := temp");
 			buffer.insert("FI;");
-		} else { // arg is byte
+		} else if (singleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.BYTE)) {
 			buffer.insert("temp := ax DIV ", arg.str, ";");
 			buffer.insert("IF ", arg.str, " = 0 OR temp >= 256 THEN");
 			buffer.insert("CALL Z");
 			buffer.insert("ELSE");
 			buffer.insert("ax := (ax MOD ", arg.str, ") * 256 + temp");
 			buffer.insert("FI;");
+		} else {
+			// error
 		}
 	}
 
 	private void mul(Token arg) {
 		if (doubleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.DOUBLE_BYTE)) {
 			arithmeticInstruction(new Token(ax, 0, str[ax]), arg, Operation.MULTIPLICATION);
-		} else { // arg is byte
+		} else if (singleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(Size.BYTE)) {
 			arithmeticInstruction(new Token(al, 0, str[al]), arg, Operation.MULTIPLICATION);
+		} else {
+			// error
 		}
 	}
 
