@@ -367,7 +367,9 @@ public class Parser extends AbstractCompiler {
 
 		}
 		check(ret);
-		check(ident);
+		if(curr.code == ident){
+			check(ident);
+		}
 		check(endp);
 		buffer.insertIntoProcedure("END");
 		buffer.insertIntoProcedure("ENDACTIONS");
