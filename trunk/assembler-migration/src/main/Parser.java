@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Parser and code generation component of the translator.
@@ -22,6 +23,7 @@ public class Parser extends AbstractCompiler {
 	private Token curr, la;
 	private ListIterator<Token> tokenListIterator;
 	private CodeBuffer buffer;
+	private Token atData;
 
 	private BitSet oneArgComm, twoArgComm, registers, lowByte, highByte, doubleByte, singleByte;
 	private Map<String, Size> variableSize;
@@ -262,7 +264,7 @@ public class Parser extends AbstractCompiler {
 			buffer.insertIntoDeclaration("\"");
 			check(string);
 		} else {
-			// error
+			throw new IllegalArgumentException("Expected to get number or string, but got: " + curr.str);
 		}
 	}
 
@@ -367,7 +369,7 @@ public class Parser extends AbstractCompiler {
 
 		}
 		check(ret);
-		if(curr.code == ident){
+		if (curr.code == ident) {
 			check(ident);
 		}
 		check(endp);
@@ -449,7 +451,7 @@ public class Parser extends AbstractCompiler {
 		} else if (twoArgComm.get(curr.code)) {
 			TwoArgStatement();
 		} else {
-			// error
+			throw new IllegalArgumentException("Expected to encounter one or two argument instruction, but got: " + curr.str);
 		}
 	}
 
@@ -1001,10 +1003,24 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void mov(Token arg1, Token arg2) {
-		// FIXME create 16bit variable @data or smth like that and initialize to random value, to
-		// simulate @data pointer
-		if (arg2.code == atdata || arg2.code == offset) {
+		if (arg2.code == offset) {// FIXME sta cemo sa ovim offsetom?
 			return;
+		} else if (arg2.code == atdata) { // simulate value returned by @data with random int generator
+
+			if (atData == null) {
+				Size size;
+				if (doubleByte.get(arg1.code)) {
+					size = Size.DOUBLE_BYTE;
+				} else if (singleByte.get(arg1.code)) {
+					size = Size.BYTE;
+				} else {
+					size = variableSize.get(getVariableName(arg1.str));
+				}
+				Integer val = new Random().nextInt(1 << size.getSize());
+				atData = new Token(number, val, val.toString());
+			}
+
+			arg2 = atData;
 		}
 		buffer.insert(generateMov(arg1, arg2), ";");
 	}

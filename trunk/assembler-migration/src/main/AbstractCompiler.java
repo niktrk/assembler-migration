@@ -9,6 +9,9 @@ package main;
  */
 public abstract class AbstractCompiler {
 
+	/**
+	 * Token codes.
+	 */
 	protected static final int
 	// terminals
 			none = 0,
@@ -49,6 +52,9 @@ public abstract class AbstractCompiler {
 			// indexing
 			minus = 73, plus = 74;
 
+	/**
+	 * Token code names.
+	 */
 	protected static final String[] str = { "none", "ident", "number", "comma", "colon", "lbrack", "rbrack", "string", "title",
 			"model", "stack", "data", "code", "end", "small", "compact", "medium", "large", "db", "dw", "proc", "far", "ret",
 			"endp", "macro", "endm", "interr", "loop", "push", "pop", "inc", "dec", "call", "neg", "jmp", "ja", "jae", "jb",

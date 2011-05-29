@@ -24,6 +24,9 @@ public class CodeBuffer {
 		init();
 	}
 
+	/**
+	 * Initialize buffer. Create starting template and insert flags and registers to declarations.
+	 */
 	private void init() {
 		String template = "VAR < " + DECLARATION + " >: " + NEW_LINE + BODY + PROCEDURE + "ENDVAR";
 
@@ -34,6 +37,10 @@ public class CodeBuffer {
 		buffer = template.replace(DECLARATION, declaration);
 	}
 
+	/**
+	 * Close buffer. Remove declaration, body and procedure markers and remove every semicolon after which there is word
+	 * "END" so generated WSL code could compile without errors.
+	 */
 	public void close() {
 		buffer = buffer.replace(DECLARATION, "");
 		buffer = buffer.replace(BODY, "");
@@ -43,6 +50,11 @@ public class CodeBuffer {
 		closed = true;
 	}
 
+	/**
+	 * Insert to declaration.
+	 * 
+	 * @param s
+	 */
 	public void insertIntoDeclaration(String... s) {
 		checkClosed();
 		for (int i = 0; i < s.length; i++) {
@@ -50,6 +62,11 @@ public class CodeBuffer {
 		}
 	}
 
+	/**
+	 * Insert to body.
+	 * 
+	 * @param s
+	 */
 	public void insertIntoBody(String... s) {
 		checkClosed();
 		for (int i = 0; i < s.length; i++) {
@@ -58,6 +75,11 @@ public class CodeBuffer {
 		buffer = buffer.replace(BODY, NEW_LINE + BODY);
 	}
 
+	/**
+	 * Insert to procedure.
+	 * 
+	 * @param s
+	 */
 	public void insertIntoProcedure(String... s) {
 		checkClosed();
 		for (int i = 0; i < s.length; i++) {
@@ -66,6 +88,11 @@ public class CodeBuffer {
 		buffer = buffer.replace(PROCEDURE, NEW_LINE + PROCEDURE);
 	}
 
+	/**
+	 * Insert to body or procedure regarding if we are currently generating code for procedure or not.
+	 * 
+	 * @param s
+	 */
 	public void insert(String... s) {
 		if (inProc) {
 			insertIntoProcedure(s);
@@ -74,6 +101,9 @@ public class CodeBuffer {
 		}
 	}
 
+	/**
+	 * Check if buffer is closed.
+	 */
 	private void checkClosed() {
 		if (closed) {
 			throw new IllegalStateException("Code buffer is closed, can not insert.");
