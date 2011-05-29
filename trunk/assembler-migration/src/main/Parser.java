@@ -119,6 +119,13 @@ public class Parser extends AbstractCompiler {
 		la = nextToken();
 	}
 
+	/**
+	 * Get code of double byte register for given code of its low or high part. For example, return value for given code
+	 * of al or ah is code of ax.
+	 * 
+	 * @param code
+	 * @return
+	 */
 	private String getXRegister(int code) {
 		if (lowByte.get(code) || highByte.get(code)) {
 			return str[code].charAt(0) + "x";
@@ -127,6 +134,12 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Get generated string for obtaining value of low or high part of given 16bit register.
+	 * 
+	 * @param code
+	 * @return
+	 */
 	private String getByteRegister(int code) {
 		if (lowByte.get(code)) {
 			return str[code].charAt(0) + "x MOD 256";
@@ -137,6 +150,12 @@ public class Parser extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Checks if current token is one of expected tokens which are provided as arguments. If that is the case moves to
+	 * next token, and if it's not throws exception.
+	 * 
+	 * @param code
+	 */
 	private void check(int... code) {
 		for (int i = 0; i < code.length; i++) {
 			if (curr.code == code[i]) {
@@ -151,6 +170,12 @@ public class Parser extends AbstractCompiler {
 				+ curr.code);
 	}
 
+	/**
+	 * Get next token. First checks if there are some injected tokens, if that is the case returns next token using
+	 * iterator, and if it's not return next token from scanner.
+	 * 
+	 * @return
+	 */
 	private Token nextToken() {
 		if (tokenListIterator != null && tokenListIterator.hasNext()) {
 			return tokenListIterator.next();
@@ -492,6 +517,22 @@ public class Parser extends AbstractCompiler {
 		arithmeticInstruction(arg1, arg2, Operation.COMPARE);
 	}
 
+	/**
+	 * Generates code for assembler <strong>add</strong> instruction which performs addition of given arguments.
+	 * Example: <code>add dest,src</code> is doing following dest := dest + src. Possible combinations of arguments:
+	 * <ul>
+	 * <li>reg - reg</li>
+	 * <li>mem - reg</li>
+	 * <li>reg - mem</li>
+	 * <li>reg - immediate data</li>
+	 * <li>mem - immediate data</li>
+	 * </ul>
+	 * Both arguments must be the same size. Add instruction affects zero, carry, overflow and sign (and some other not
+	 * important for us) flags.
+	 * 
+	 * @param arg1
+	 * @param arg2
+	 */
 	private void add(Token arg1, Token arg2) {
 		arithmeticInstruction(arg1, arg2, Operation.ADDITION);
 	}
@@ -734,7 +775,8 @@ public class Parser extends AbstractCompiler {
 	}
 
 	/**
-	 * Generates code for exchanging values of given arguments. Possible combinations of arguments:
+	 * Generates code for <strong>xchg</strong> assembler instruction which exchanges values of given arguments.
+	 * Possible combinations of arguments:
 	 * <ul>
 	 * <li>reg - reg</li>
 	 * <li>mem - reg</li>
