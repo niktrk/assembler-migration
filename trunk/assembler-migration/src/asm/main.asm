@@ -1,38 +1,25 @@
-title Pera ;blah blah b34 23d
 .model small
-.stack 100h
+
 .data
-let db 8
-nik db 10
-
-
+	let db 30
+	nik db 41
 .code
 
-write macro char
-	mov ah,02
-	mov dl,char
-	int 21h
-endm	
+sabiraj proc
+mov al, let
+mov bl, nik
+add al, bl
+mov dl, al
+mov ah, 02
+int 21h
+ret
+sabiraj endp
 
 start:
 mov ax, @data
 mov ds, ax
-mov ax,0
-
-mov al, 65
-mov bh, 12
-add al, bh
-
-div nik					    ;podeli index(ax) sa 10
-mov bl,al					;prebaci rezultat deljenja u bl
-add bl,48					;napravi broj od ASCII coda
-mov bh,ah					;prebaci ostatak pri deljenju u bh
-add bh,48					;napravi broj od ASCII coda
-write bl					;ispisi prvu cifru
-write bh					;ispisi drugi cifru
-
-theend:
-MOV AX,4C00H
-INT 21h
-	
+mov ax, 0
+call sabiraj
+mov ah, 4ch
+int 21h
 end start
