@@ -18,7 +18,7 @@ Macro = ident "macro" {ident} {Statement} "endm".
 Statement = OneArgStat | TwoArgStat.
 OneArgStat = OneArgComm Argument.
 TwoArgStat = TwoArgStat Argument "," Argument.
-OneArgComm = "int" | "loop" | "push" | "pop" | "inc" | "dec" | "call" | "neg" | "mull" | "div" |
+OneArgComm = "int" | "loop" | "push" | "pop" | "inc" | "dec" | "call" | "neg" | "mul" | "div" |
 		  	 "jmp" | "ja" | "jae" | "jb" | "jbe" | "jg" | "jge" | "jl" | "jle" | "je".
 		  	 
 TwoArgComm = "mov" | "xchg" | "cmp" | "add" | "sub".

@@ -30,6 +30,9 @@ public class Scanner extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Read next character.
+	 */
 	private void read() {
 		try {
 			int i = sc.read();
@@ -44,6 +47,11 @@ public class Scanner extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Read string.
+	 * 
+	 * @return
+	 */
 	private Token readString() {
 		String str = "";
 		read();
@@ -55,6 +63,11 @@ public class Scanner extends AbstractCompiler {
 		return new Token(string, 0, str);
 	}
 
+	/**
+	 * Read name;
+	 * 
+	 * @return
+	 */
 	private String readName() {
 		String ret = "";
 		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9') && !eof) {
@@ -64,6 +77,11 @@ public class Scanner extends AbstractCompiler {
 		return ret.toLowerCase();
 	}
 
+	/**
+	 * Read decimal or hexadecimal number.
+	 * 
+	 * @return
+	 */
 	private Token readNumber() {
 		String num = "";
 		int radix = 10;
@@ -79,6 +97,9 @@ public class Scanner extends AbstractCompiler {
 		return new Token(number, value.intValue(), value.toString());
 	}
 
+	/**
+	 * Read (skip) comment.
+	 */
 	private void readComment() {
 		while (chr != '\n' && !eof) {
 			read();
@@ -88,6 +109,11 @@ public class Scanner extends AbstractCompiler {
 		}
 	}
 
+	/**
+	 * Return next token.
+	 * 
+	 * @return
+	 */
 	public Token next() {
 		while (chr <= ' ' && !eof) {
 			read();
