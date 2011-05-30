@@ -311,19 +311,22 @@ public class Parser extends AbstractCompiler {
 					else if (macroParams.get(curr.str) != null) {
 						injectMacro();
 					}
-				}
 
-				else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
+				} else if (oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 					Statement();
 				}
 
 			}
 			buffer.insertIntoBody("END");
 			buffer.insertIntoBody("ENDACTIONS");
+
 			if (thereIsProc) {
 				buffer.insertIntoProcedure("END");
 			}
 		}
+
+		check(end);
+		check(none, ident);
 	}
 
 	/**
