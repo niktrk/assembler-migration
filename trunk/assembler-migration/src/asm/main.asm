@@ -2,8 +2,14 @@
 
 .data
 	let db 30
-	nik db 41
+	nik db 45
+	prc db 4
 .code
+
+start:
+mov ax, @data
+mov ds, ax
+mov ax, 0
 
 sabiraj proc
 mov al, let
@@ -15,11 +21,18 @@ int 21h
 ret
 sabiraj endp
 
-start:
-mov ax, @data
-mov ds, ax
-mov ax, 0
+oduzimaj proc
+mov bl, prc
+sub al, bl
+mov dl, al
+mov ah, 02
+int 21h
+ret
+oduzimaj endp
+
+quit:
 call sabiraj
+call oduzimaj
 mov ah, 4ch
 int 21h
-end start
+end quit
