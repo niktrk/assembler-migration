@@ -1296,15 +1296,23 @@ public class Parser extends AbstractCompiler {
 		case push:
 			check(push);
 			arg = Argument();
+			if (doubleByte.get(arg.code)) {
+				buffer.insert("temp := ", arg.str, ";" );
+			} else if (lowByte.get(arg.code)) {
+				buffer.insert("temp := ", getXRegister(arg.code), " MOD 256;");
+			} else if (highByte.get(arg.code)) {
+				buffer.insert("temp := ", getXRegister(arg.code), " DIV 256;");
+			} else if (isVariable(arg.str)) {
+				buffer.insert("temp := ", arg.str, ";");
+			} else {
+				// error
+			}
 			buffer.insert("PUSH (stack, temp);");
-			// FIXME zasto nam etreba ovaj set result
-			setResult(arg);
 			break;
 		case pop:
 			check(pop);
 			arg = Argument();
 			buffer.insert("POP (temp, stack);");
-			// FIXME zasto nam etreba ovaj set result
 			setResult(arg);
 			break;
 		case inc:
