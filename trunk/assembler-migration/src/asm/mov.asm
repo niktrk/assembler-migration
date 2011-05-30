@@ -5,17 +5,17 @@ title movs
 .stack 100h
 
 .data
-nik db 32
+nik dw 32
 let dw 49
-
 .code
 
 start:
 
-cmp let, nik
+mov bx, nik
+cmp let, bx
 jg letcar
 
 letcar:
-add al, let
+add ax, let
 
 end start
