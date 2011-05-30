@@ -822,10 +822,12 @@ public class Parser extends AbstractCompiler {
 	private void mul(Token arg) {
 		if (doubleByte.get(arg.code)
 				|| variableSize.get(getVariableName(arg.str)).equals(Size.DOUBLE_BYTE)) {
-			arithmeticInstruction(new Token(ax, 0, str[ax]), arg, Operation.MULTIPLICATION);
+			arithmeticInstruction(new Token(ax, 0, str[ax], arg.line), arg,
+					Operation.MULTIPLICATION);
 		} else if (singleByte.get(arg.code)
 				|| variableSize.get(getVariableName(arg.str)).equals(Size.BYTE)) {
-			arithmeticInstruction(new Token(al, 0, str[al]), arg, Operation.MULTIPLICATION);
+			arithmeticInstruction(new Token(al, 0, str[al], arg.line), arg,
+					Operation.MULTIPLICATION);
 		} else {
 			throw new IllegalArgumentException(
 					"Expected to get register (16bit or 8bit) or variable (db or dw), but got: "
@@ -1060,7 +1062,6 @@ public class Parser extends AbstractCompiler {
 		if (arg2.code == offset) {// FIXME sta cemo sa ovim offsetom?
 			return;
 		} else if (arg2.code == atdata) { // simulate value returned by @data with random int
-			// generator
 
 			if (atData == null) {
 				Size size;
@@ -1072,7 +1073,7 @@ public class Parser extends AbstractCompiler {
 					size = variableSize.get(getVariableName(arg1.str));
 				}
 				Integer val = new Random().nextInt(1 << size.getSize());
-				atData = new Token(number, val, val.toString());
+				atData = new Token(number, val, val.toString(), arg2.line);
 			}
 
 			arg2 = atData;
@@ -1220,7 +1221,7 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void inc(Token arg) {
-		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.INCREMENTATION);
+		arithmeticInstruction(arg, new Token(number, 1, "1", arg.line), Operation.INCREMENTATION);
 	}
 
 	/**
@@ -1239,7 +1240,7 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void dec(Token arg) {
-		arithmeticInstruction(arg, new Token(number, 1, "1"), Operation.DECREMENTATION);
+		arithmeticInstruction(arg, new Token(number, 1, "1", arg.line), Operation.DECREMENTATION);
 	}
 
 	/**
@@ -1257,7 +1258,7 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void neg(Token arg) {
-		arithmeticInstruction(new Token(number, 0, "0"), arg, Operation.NEGATION);
+		arithmeticInstruction(new Token(number, 0, "0", arg.line), arg, Operation.NEGATION);
 	}
 
 	/**
@@ -1269,7 +1270,7 @@ public class Parser extends AbstractCompiler {
 	 * <strong>jl</strong>, <strong>jle</strong>, <strong>je</strong>.
 	 */
 	private void OneArgStatement() {
-		Token arg = new Token();
+		Token arg;
 		switch (curr.code) {
 		case interr:
 			check(interr);
@@ -1297,7 +1298,7 @@ public class Parser extends AbstractCompiler {
 			check(push);
 			arg = Argument();
 			if (doubleByte.get(arg.code)) {
-				buffer.insert("temp := ", arg.str, ";" );
+				buffer.insert("temp := ", arg.str, ";");
 			} else if (lowByte.get(arg.code)) {
 				buffer.insert("temp := ", getXRegister(arg.code), " MOD 256;");
 			} else if (highByte.get(arg.code)) {
@@ -1424,7 +1425,7 @@ public class Parser extends AbstractCompiler {
 	 * @return
 	 */
 	private Token Argument() {
-		Token ret = new Token();
+		Token ret;
 		if (curr.code == ident) {
 			ret = curr;
 			check(ident);
@@ -1461,7 +1462,7 @@ public class Parser extends AbstractCompiler {
 			check(offset);
 			check(ident);
 		} else {
-			// error
+			throw new IllegalArgumentException();
 		}
 		return ret;
 	}
@@ -1483,7 +1484,7 @@ public class Parser extends AbstractCompiler {
 	 * @return
 	 */
 	private Token Register() {
-		Token ret = new Token();
+		Token ret;
 		switch (curr.code) {
 		case ax:
 			ret = curr;

@@ -11,20 +11,17 @@ public class Token {
 	int code;
 	int val;
 	String str;
+	int line;
 
-	public Token() {
-		super();
+	public Token(int line) {
+		this.line = line;
 	}
 
-	public Token(int code, int val, String str) {
-		super();
+	public Token(int code, int val, String str, int line) {
 		this.code = code;
 		this.val = val;
 		this.str = str;
-	}
-
-	public Token(int code, String str) {
-		this(code, 0, str);
+		this.line = line;
 	}
 
 	public boolean sameAs(Token token) {
@@ -36,6 +33,7 @@ public class Token {
 		String out = "Token: \ncode: " + code;
 		out += "\n val: " + val;
 		out += "\n str: " + str;
+		out += "\n line: " + line;
 		return out;
 	}
 

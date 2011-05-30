@@ -13,19 +13,19 @@ import java.io.IOException;
  */
 public class Scanner extends AbstractCompiler {
 
-	public BufferedReader sc;
+	private BufferedReader sc;
 	private char chr;
-	private boolean eof = false;
+	private boolean eof;
+	private int line;
 
 	public Scanner(String file) {
+		eof = false;
+		line = 1;
 		try {
 			sc = new BufferedReader(new FileReader(file));
-			chr = (char) sc.read();
+			read();
 		} catch (FileNotFoundException e) {
 			System.out.println("File " + file + " doesn't exist.");
-			System.exit(0);
-		} catch (IOException e) {
-			System.out.println("Error occurred while trying to read input file.");
 			System.exit(0);
 		}
 	}
@@ -40,6 +40,9 @@ public class Scanner extends AbstractCompiler {
 				eof = true;
 			} else {
 				chr = (char) i;
+				if (chr == '\n') {
+					line++;
+				}
 			}
 		} catch (IOException ioe) {
 			System.out.println("Error occurred while trying to read input file.");
@@ -60,7 +63,7 @@ public class Scanner extends AbstractCompiler {
 			read();
 		}
 		read();
-		return new Token(string, 0, str);
+		return new Token(string, 0, str, line);
 	}
 
 	/**
@@ -70,7 +73,8 @@ public class Scanner extends AbstractCompiler {
 	 */
 	private String readName() {
 		String ret = "";
-		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9') && !eof) {
+		while ((chr >= 'a' && chr <= 'z' || chr >= 'A' && chr <= 'Z' || chr >= '0' && chr <= '9')
+				&& !eof) {
 			ret += chr;
 			read();
 		}
@@ -85,7 +89,8 @@ public class Scanner extends AbstractCompiler {
 	private Token readNumber() {
 		String num = "";
 		int radix = 10;
-		while ((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f') || (chr >= 'A' && chr <= 'F') && !eof) {
+		while ((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f')
+				|| (chr >= 'A' && chr <= 'F') && !eof) {
 			num += chr;
 			read();
 		}
@@ -94,7 +99,7 @@ public class Scanner extends AbstractCompiler {
 			read();
 		}
 		Integer value = Integer.parseInt(num, radix);
-		return new Token(number, value.intValue(), value.toString());
+		return new Token(number, value.intValue(), value.toString(), line);
 	}
 
 	/**
@@ -121,7 +126,7 @@ public class Scanner extends AbstractCompiler {
 		if (chr == ';') {
 			readComment();
 		}
-		Token ret = new Token(none, -1, "");
+		Token ret = new Token(none, -1, "", line);
 		if (!eof) {
 			String str = "";
 			if (chr >= '0' && chr <= '9') {
