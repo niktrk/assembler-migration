@@ -55,10 +55,10 @@ public class Scanner extends AbstractCompiler {
 	 * 
 	 * @return
 	 */
-	private Token readString() {
+	private Token readString(char end) {
 		String str = "";
 		read();
-		while (chr != '\'') {
+		while (chr != end) {
 			str += chr;
 			read();
 		}
@@ -143,8 +143,8 @@ public class Scanner extends AbstractCompiler {
 			} else if (chr == ']') {
 				ret.code = rbrack;
 				read();
-			} else if (chr == '\'') {
-				return readString();
+			} else if (chr == '\'' || chr == '"') {
+				return readString(chr);
 			} else if (chr == '+') {
 				ret.code = plus;
 				read();

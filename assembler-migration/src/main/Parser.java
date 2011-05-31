@@ -230,7 +230,7 @@ public class Parser extends AbstractCompiler {
 			check(db, dw);
 
 			if (curr.code == number || curr.code == string || curr.code == quest) {
-				if (la.code == comma) {
+				if (curr.code == string || la.code == comma) {
 					buffer.insertIntoDeclaration("< ");
 					array = true;
 				}
@@ -260,11 +260,15 @@ public class Parser extends AbstractCompiler {
 					.get(getVariableName(varName)))));
 			check(number);
 		} else if (curr.code == string) {
-			buffer.insertIntoDeclaration("\"");
-			buffer.insertIntoDeclaration(curr.str);
-			buffer.insertIntoDeclaration("\"");
+			// insert array or ascii codes
+			for (int i = 0; i < curr.str.length(); i++) {
+				buffer.insertIntoDeclaration(String.valueOf((int) curr.str.charAt(i)));
+				if (i < curr.str.length() - 1) {
+					buffer.insertIntoDeclaration(",");
+				}
+			}
 			check(string);
-		} else if(curr.code == quest){
+		} else if (curr.code == quest) {
 			buffer.insertIntoDeclaration("0");
 			check(quest);
 		} else {
@@ -285,7 +289,8 @@ public class Parser extends AbstractCompiler {
 			buffer.insertIntoBody("ACTIONS beg:");
 			buffer.insertIntoBody("beg == ");
 
-			while ((curr.code == ident && (la.code == colon || la.code == proc || la.code == macro))
+			while ((curr.code == ident && (la.code == colon || la.code == proc || la.code == macro || (macroParams
+					.get(curr.str) != null)))
 					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
 				if (curr.code == ident) {
@@ -428,9 +433,7 @@ public class Parser extends AbstractCompiler {
 		check(ident);
 
 		for (int i = 0; i < formalParams.size(); i++) {
-			actualParams.add(curr);
-			check(ident, number, string, ax, ah, al, bx, bh, bl, cx, ch, cl, dx, dh, dl, si, di,
-					bp, sp, cs, ds, ss, es);
+			actualParams.add(Argument());
 			if (curr.code == comma) {
 				check(comma);
 			}
@@ -1383,15 +1386,20 @@ public class Parser extends AbstractCompiler {
 			check(ident);
 			if (curr.code == lbrack) {
 				check(lbrack);
-				ret.str += "[";
+				ret.str += "[((";
 				Token arg;
+				String argStr;
 				while (true) {
 					if (curr.code == number) {
 						arg = Number();
-					} else {
+						argStr = String.valueOf(toUnsigned(arg.val, Size.DOUBLE_BYTE));
+					} else if (doubleByte.get(curr.code)){
 						arg = Register();
+						argStr = arg.str;
+					} else {
+						throw new ParsingException(curr.line, curr.str, "number or 16bit register");
 					}
-					ret.str += arg.str;
+					ret.str += argStr;
 					if (curr.code == plus || curr.code == minus) {
 						ret.str += curr.str;
 						check(plus, minus);
@@ -1400,7 +1408,7 @@ public class Parser extends AbstractCompiler {
 					}
 				}
 				check(rbrack);
-				ret.str += " + 1]";
+				ret.str += ") MOD 65536) + 1]";
 			}
 		} else if (curr.code == number) {
 			ret = Number();
