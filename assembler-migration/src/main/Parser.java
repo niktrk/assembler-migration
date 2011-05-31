@@ -289,8 +289,7 @@ public class Parser extends AbstractCompiler {
 			buffer.insertIntoBody("ACTIONS beg:");
 			buffer.insertIntoBody("beg == ");
 
-			while ((curr.code == ident && (la.code == colon || la.code == proc || la.code == macro || (macroParams
-					.get(curr.str) != null)))
+			while ((curr.code == ident && (la.code == colon || la.code == proc || la.code == macro || isMacro(curr.str)))
 					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
 				if (curr.code == ident) {
@@ -310,7 +309,7 @@ public class Parser extends AbstractCompiler {
 
 					} else if (la.code == macro) { // macro
 						Macro();
-					} else if (macroParams.get(curr.str) != null) {
+					} else if (isMacro(curr.str)) {
 						// if we have macro call, inject macro tokens
 						injectMacro();
 					}
@@ -342,10 +341,7 @@ public class Parser extends AbstractCompiler {
 		List<Token> currentMacroParams = new ArrayList<Token>();
 		check(ident);
 		check(macro);
-		// FIXME treba proveriti, moguce da kada se na pocetku makroa bez
-		// parametara nalazi poziv makroa bez parametara
-		// ovo ne radi
-		if (curr.code == ident && la.code != colon) {
+		if (curr.code == ident && la.code != colon && !isMacro(curr.str)) {
 			currentMacroParams.add(curr);
 			check(ident);
 			while (curr.code == comma && la.code == ident) {
@@ -358,7 +354,7 @@ public class Parser extends AbstractCompiler {
 
 		List<Token> currentMacroTokens = new ArrayList<Token>();
 		while (curr.code != endm) {
-			if (curr.code == ident && macroParams.get(curr.str) != null) {
+			if (curr.code == ident && isMacro(curr.str)) {
 				injectMacro();
 			} else {
 				currentMacroTokens.add(curr);
@@ -385,7 +381,7 @@ public class Parser extends AbstractCompiler {
 		}
 		while (curr.code == ident || oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 			// if we have macro call, inject macro tokens
-			if (curr.code == ident && macroParams.get(curr.str) != null) {
+			if (curr.code == ident && isMacro(curr.str)) {
 				injectMacro();
 			} else if (curr.code == ident && la.code == colon) {
 				Label();
@@ -1147,6 +1143,16 @@ public class Parser extends AbstractCompiler {
 	 */
 	private boolean isVariable(String var) {
 		return variableSize.get(getVariableName(var)) != null;
+	}
+	
+	/**
+	 * Check if given string provided as argument is macro name.
+	 * 
+	 * @param val
+	 * @return
+	 */
+	private boolean isMacro(String val) {
+		return macroParams.get(val) != null;
 	}
 
 	/**

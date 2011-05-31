@@ -12,7 +12,7 @@ public class App {
 
 		// start remove
 		args = new String[1];
-		args[0] = "src/asm/helloworld.asm";
+		args[0] = "src/asm/macrobug.asm";
 		// end remove
 
 		if (args.length != 0) {
