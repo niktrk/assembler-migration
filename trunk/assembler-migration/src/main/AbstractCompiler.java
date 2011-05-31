@@ -41,16 +41,15 @@ public abstract class AbstractCompiler {
 			mov = 44, xchg = 45, cmp = 46, add = 47, sub = 48, mul = 49, div = 50,
 
 			// Registers
-			ax = 51, ah = 52, al = 53, bx = 54, bh = 55, bl = 56, cx = 57, ch = 58, cl = 59, dx = 60, dh = 61, dl = 62,
+			ax = 51, ah = 52, al = 53, bx = 54, bh = 55, bl = 56, cx = 57, ch = 58, cl = 59, dx = 60, dh = 61, dl = 62, 
 			si = 63,
 			di = 64, bp = 65, sp = 66, cs = 67, ds = 68, ss = 69, es = 70,
 
 			// other
 			atdata = 71, // @data
-			offset = 72,
 
 			// indexing
-			minus = 73, plus = 74;
+			minus = 72, plus = 73;
 
 	/**
 	 * Token code names.
@@ -59,7 +58,6 @@ public abstract class AbstractCompiler {
 			"model", "stack", "data", "code", "end", "small", "compact", "medium", "large", "db", "dw", "proc", "far", "ret",
 			"endp", "macro", "endm", "interr", "loop", "push", "pop", "inc", "dec", "call", "neg", "jmp", "ja", "jae", "jb",
 			"jbe", "jg", "jge", "jl", "jle", "je", "mov", "xchg", "cmp", "add", "sub", "mul", "div", "ax", "ah", "al", "bx",
-			"bh", "bl", "cx", "ch", "cl", "dx", "dh", "dl", "si", "di", "bp", "sp", "cs", "ds", "ss", "es", "atdata", "offset",
-			"-", "+" };
+			"bh", "bl", "cx", "ch", "cl", "dx", "dh", "dl", "si", "di", "bp", "sp", "cs", "ds", "ss", "es", "atdata", "-", "+" };
 
 }

@@ -292,8 +292,6 @@ public class Scanner extends AbstractCompiler {
 					ret.code = ss;
 				} else if (str.equals("es")) {
 					ret.code = es;
-				} else if (str.equals("offset")) {
-					ret.code = offset;
 				} else {
 					ret.code = ident;
 				}
