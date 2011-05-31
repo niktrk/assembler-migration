@@ -151,6 +151,9 @@ public class Scanner extends AbstractCompiler {
 			} else if (chr == '-') {
 				ret.code = minus;
 				read();
+			} else if (chr == '?') {
+				ret.code = quest;
+				read();
 			} else if (chr == '.') {
 				read();
 				str = readName();

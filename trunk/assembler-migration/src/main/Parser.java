@@ -229,7 +229,7 @@ public class Parser extends AbstractCompiler {
 			check(ident);
 			check(db, dw);
 			// TODO mozemo mozda dodati onaj upitnik shit
-			if (curr.code == number || curr.code == string) {
+			if (curr.code == number || curr.code == string || curr.code == quest) {
 				if (la.code == comma) {
 					buffer.insertIntoDeclaration("< ");
 					array = true;
@@ -264,6 +264,9 @@ public class Parser extends AbstractCompiler {
 			buffer.insertIntoDeclaration(curr.str);
 			buffer.insertIntoDeclaration("\"");
 			check(string);
+		} else if(curr.code == quest){
+			buffer.insertIntoDeclaration("0");
+			check(quest);
 		} else {
 			throw new ParsingException(curr.line, curr.code, number, string);
 		}

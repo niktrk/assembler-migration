@@ -3,7 +3,7 @@
 .data
 	let db 30
 	nik db 45
-	prc db 4
+	prc db ?
 .code
 
 start:
