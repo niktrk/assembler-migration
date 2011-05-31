@@ -12,7 +12,7 @@ public class App {
 
 		// start remove
 		args = new String[1];
-		args[0] = "src/asm/mov.asm";
+		args[0] = "src/asm/main.asm";
 		// end remove
 
 		if (args.length != 0) {

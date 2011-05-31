@@ -47,9 +47,10 @@ public abstract class AbstractCompiler {
 
 			// other
 			atdata = 71, // @data
+			quest = 72, //?
 
 			// indexing
-			minus = 72, plus = 73;
+			minus = 73, plus = 74;
 
 	/**
 	 * Token code names.
@@ -58,6 +59,6 @@ public abstract class AbstractCompiler {
 			"model", "stack", "data", "code", "end", "small", "compact", "medium", "large", "db", "dw", "proc", "far", "ret",
 			"endp", "macro", "endm", "interr", "loop", "push", "pop", "inc", "dec", "call", "neg", "jmp", "ja", "jae", "jb",
 			"jbe", "jg", "jge", "jl", "jle", "je", "mov", "xchg", "cmp", "add", "sub", "mul", "div", "ax", "ah", "al", "bx",
-			"bh", "bl", "cx", "ch", "cl", "dx", "dh", "dl", "si", "di", "bp", "sp", "cs", "ds", "ss", "es", "atdata", "-", "+" };
+			"bh", "bl", "cx", "ch", "cl", "dx", "dh", "dl", "si", "di", "bp", "sp", "cs", "ds", "ss", "es", "atdata", "?", "-", "+" };
 
 }
