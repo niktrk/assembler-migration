@@ -1033,9 +1033,7 @@ public class Parser extends AbstractCompiler {
 	 * @param arg2
 	 */
 	private void mov(Token arg1, Token arg2) {
-		if (arg2.code == offset) {// FIXME sta cemo sa ovim offsetom?
-			return;
-		} else if (arg2.code == atdata) { // simulate value returned by @data with random int
+		if (arg2.code == atdata) { // simulate value returned by @data with random int
 
 			if (atData == null) { // arg1 size must be double byte
 				Integer val = new Random().nextInt(1 << Size.DOUBLE_BYTE.getSize());
@@ -1408,12 +1406,8 @@ public class Parser extends AbstractCompiler {
 		} else if (curr.code == atdata) {
 			ret = curr;
 			check(atdata);
-		} else if (curr.code == offset) {
-			ret = curr;
-			check(offset);
-			check(ident);
 		} else {
-			throw new ParsingException(curr.line, curr.code, ident, number, atdata, offset);
+			throw new ParsingException(curr.line, curr.code, ident, number, atdata);
 		}
 		return ret;
 	}
