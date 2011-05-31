@@ -228,7 +228,7 @@ public class Parser extends AbstractCompiler {
 			varName = curr.str;
 			check(ident);
 			check(db, dw);
-			// TODO mozemo mozda dodati onaj upitnik shit
+
 			if (curr.code == number || curr.code == string || curr.code == quest) {
 				if (la.code == comma) {
 					buffer.insertIntoDeclaration("< ");
