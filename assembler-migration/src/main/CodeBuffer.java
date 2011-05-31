@@ -9,10 +9,10 @@ package main;
 public class CodeBuffer {
 
 	private static final String NEW_LINE = System.getProperty("line.separator");
-	private static final String DECLARATION = "_decl_";
-	private static final String BODY = "_body_";
-	private static final String PROCEDURE = "_proc_";
-	private static final String BEGIN = "_begin_";
+	private static final String DECLARATION = "${decl}";
+	private static final String BODY = "${body}";
+	private static final String PROCEDURE = "${proc}";
+	private static final String BEGIN = "${begin}";
 
 	private String buffer;
 	private boolean inProc;
@@ -29,18 +29,19 @@ public class CodeBuffer {
 	 * Initialize buffer. Create starting template and insert flags and registers to declarations.
 	 */
 	private void init() {
-		String template = "VAR < " + DECLARATION + " >: " + NEW_LINE + BEGIN + NEW_LINE + BODY + PROCEDURE + "ENDVAR";
+		String template = "VAR < " + DECLARATION + " >: " + NEW_LINE + BEGIN + NEW_LINE + BODY + PROCEDURE
+				+ "ENDVAR";
 
-		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, " + NEW_LINE
-				+ " bx:= 0, cx:= 0, dx:= 0, temp := 0, si:= 0, di:= 0, bp:= 0, sp:= 0, " + NEW_LINE
-				+ " cs:= 0, ds:= 0, ss:= 0, es:= 0 " + NEW_LINE + " " + DECLARATION;
+		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, "
+				+ NEW_LINE + " bx:= 0, cx:= 0, dx:= 0, temp := 0, si:= 0, di:= 0, bp:= 0, sp:= 0, "
+				+ NEW_LINE + " cs:= 0, ds:= 0, ss:= 0, es:= 0 " + NEW_LINE + " " + DECLARATION;
 
 		buffer = template.replace(DECLARATION, declaration);
 	}
 
 	/**
-	 * Close buffer. Remove declaration, body and procedure markers and remove every semicolon after which there is word
-	 * "END" so generated WSL code could compile without errors.
+	 * Close buffer. Remove declaration, body and procedure markers and remove every semicolon after
+	 * which there is word "END" so generated WSL code could compile without errors.
 	 */
 	public void close() {
 		buffer = buffer.replace(DECLARATION, "");
@@ -91,7 +92,8 @@ public class CodeBuffer {
 	}
 
 	/**
-	 * Insert to body or procedure regarding if we are currently generating code for procedure or not.
+	 * Insert to body or procedure regarding if we are currently generating code for procedure or
+	 * not.
 	 * 
 	 * @param s
 	 */
@@ -102,8 +104,8 @@ public class CodeBuffer {
 			insertIntoBody(s);
 		}
 	}
-	
-	public void addBegin(){
+
+	public void addBegin() {
 		buffer = buffer.replace(BEGIN, "BEGIN" + BEGIN);
 	}
 
@@ -115,7 +117,6 @@ public class CodeBuffer {
 			throw new IllegalStateException("Code buffer is closed, can not insert.");
 		}
 	}
-	
 
 	public void setInProc(boolean inProc) {
 		this.inProc = inProc;

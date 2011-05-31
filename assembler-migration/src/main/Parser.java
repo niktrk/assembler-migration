@@ -1253,16 +1253,11 @@ public class Parser extends AbstractCompiler {
 		case push:
 			check(push);
 			arg = Argument();
-			if (doubleByte.get(arg.code)) {
-				buffer.insert("temp := ", arg.str, ";");
-			} else if (lowByte.get(arg.code)) {
-				buffer.insert("temp := ", getXRegister(arg.code), " MOD 256;");
-			} else if (highByte.get(arg.code)) {
-				buffer.insert("temp := ", getXRegister(arg.code), " DIV 256;");
-			} else if (isVariable(arg.str)) {
+			if ((doubleByte.get(arg.code) || variableSize.get(getVariableName(arg.str)).equals(
+					Size.DOUBLE_BYTE))) { // must be 16bit
 				buffer.insert("temp := ", arg.str, ";");
 			} else {
-				// error
+				throw new ParsingException(arg.line, arg.str, "16bit register or dw variable");
 			}
 			buffer.insert("PUSH (stack, temp);");
 			break;
