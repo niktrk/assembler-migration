@@ -1,7 +1,6 @@
 package main;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
@@ -151,9 +150,9 @@ public class Parser extends AbstractCompiler {
 	 * 
 	 * @param code
 	 */
-	private void check(int... code) {
-		for (int i = 0; i < code.length; i++) {
-			if (curr.code == code[i]) {
+	private void check(int... codes) {
+		for (int i = 0; i < codes.length; i++) {
+			if (curr.code == codes[i]) {
 				// read next token
 				curr = la;
 				la = nextToken();
@@ -161,8 +160,7 @@ public class Parser extends AbstractCompiler {
 			}
 		}
 		// error
-		throw new IllegalStateException("Expected to get some of: " + Arrays.toString(code)
-				+ " but current token is: " + curr.code);
+		throw new ParsingException(curr.line, curr.code, codes);
 	}
 
 	/**
@@ -221,6 +219,7 @@ public class Parser extends AbstractCompiler {
 		while (curr.code == ident) {
 			array = false;
 			buffer.insertIntoDeclaration(", ", curr.str, " := ");
+			// map (variableName, size) pair
 			if (la.code == db) {
 				variableSize.put(curr.str, Size.BYTE);
 			} else if (la.code == dw) {
@@ -245,7 +244,7 @@ public class Parser extends AbstractCompiler {
 					buffer.insertIntoDeclaration(" >");
 				}
 			} else {
-				// error
+				throw new ParsingException(curr.line, curr.code, number, string);
 			}
 		}
 	}
@@ -266,8 +265,7 @@ public class Parser extends AbstractCompiler {
 			buffer.insertIntoDeclaration("\"");
 			check(string);
 		} else {
-			throw new IllegalArgumentException("Expected to get number or string, but got: "
-					+ curr.str);
+			throw new ParsingException(curr.line, curr.code, number, string);
 		}
 	}
 
@@ -288,12 +286,11 @@ public class Parser extends AbstractCompiler {
 					|| oneArgComm.get(curr.code) || twoArgComm.get(curr.code)) {
 
 				if (curr.code == ident) {
-					// label
-					if (la.code == colon) {
+
+					if (la.code == colon) { // label
 						Label();
-					}
-					// procedure
-					else if (la.code == proc) {
+					} else if (la.code == proc) { // procedure
+
 						if (!thereIsProc) {
 							thereIsProc = true;
 							buffer.addBegin();
@@ -302,13 +299,11 @@ public class Parser extends AbstractCompiler {
 						buffer.setInProc(true);
 						Procedure();
 						buffer.setInProc(false);
-					}
-					// macro
-					else if (la.code == macro) {
+
+					} else if (la.code == macro) { // macro
 						Macro();
-					}
-					// if we have macro call, inject macro tokens
-					else if (macroParams.get(curr.str) != null) {
+					} else if (macroParams.get(curr.str) != null) {
+						// if we have macro call, inject macro tokens
 						injectMacro();
 					}
 
@@ -317,6 +312,7 @@ public class Parser extends AbstractCompiler {
 				}
 
 			}
+
 			buffer.insertIntoBody("END");
 			buffer.insertIntoBody("ENDACTIONS");
 
@@ -395,10 +391,10 @@ public class Parser extends AbstractCompiler {
 			check(ident);
 		}
 		check(endp);
+
 		buffer.insertIntoProcedure("END");
 		buffer.insertIntoProcedure("ENDACTIONS");
 		buffer.insertIntoProcedure("END");
-
 	}
 
 	/**
@@ -420,51 +416,46 @@ public class Parser extends AbstractCompiler {
 	 * and list iterator is set to the beginning of newly formed list.
 	 */
 	private void injectMacro() {
-		if (macroParams.get(curr.str) != null) {
+		// calling method must ensure that current token is holding macro name
+		String macroName = curr.str;
+		List<Token> formalParams = macroParams.get(macroName);
+		List<Token> actualParams = new ArrayList<Token>();
+		List<Token> tokens = macroTokens.get(macroName);
+		List<Token> generatedTokens = new ArrayList<Token>();
+		check(ident);
 
-			String macroName = curr.str;
-			List<Token> formalParams = macroParams.get(macroName);
-			List<Token> actualParams = new ArrayList<Token>();
-			List<Token> tokens = macroTokens.get(macroName);
-			List<Token> generatedTokens = new ArrayList<Token>();
-			check(ident);
-
-			for (int i = 0; i < formalParams.size(); i++) {
-				actualParams.add(curr);
-				check(ident, number, string, ax, ah, al, bx, bh, bl, cx, ch, cl, dx, dh, dl, si,
-						di, bp, sp, cs, ds, ss, es);
-				if (curr.code == comma) {
-					check(comma);
-				}
+		for (int i = 0; i < formalParams.size(); i++) {
+			actualParams.add(curr);
+			check(ident, number, string, ax, ah, al, bx, bh, bl, cx, ch, cl, dx, dh, dl, si, di,
+					bp, sp, cs, ds, ss, es);
+			if (curr.code == comma) {
+				check(comma);
 			}
-
-			// iterate through all macro tokens and replace all occurrences of
-			// formal parameters with actual parameters
-			for (Token token : tokens) {
-				// iterate through all formal parameters
-				boolean found = false;
-				for (int i = 0; i < formalParams.size() && !found; i++) {
-					// if current token is formal parameter put actual parameter
-					// to list
-					if (token.sameAs(formalParams.get(i))) {
-						generatedTokens.add(actualParams.get(i));
-						found = true;
-					}
-				}
-				if (!found) {
-					generatedTokens.add(token);
-				}
-			}
-
-			generatedTokens.add(curr);
-			generatedTokens.add(la);
-			tokenListIterator = generatedTokens.listIterator();
-			curr = nextToken();
-			la = nextToken();
-
-		} else {
-			// error
 		}
+
+		// iterate through all macro tokens and replace all occurrences of
+		// formal parameters with actual parameters
+		for (Token token : tokens) {
+			// iterate through all formal parameters
+			boolean found = false;
+			for (int i = 0; i < formalParams.size() && !found; i++) {
+				// if current token is formal parameter put actual parameter
+				// to list
+				if (token.sameAs(formalParams.get(i))) {
+					generatedTokens.add(actualParams.get(i));
+					found = true;
+				}
+			}
+			if (!found) {
+				generatedTokens.add(token);
+			}
+		}
+
+		generatedTokens.add(curr);
+		generatedTokens.add(la);
+		tokenListIterator = generatedTokens.listIterator();
+		curr = nextToken();
+		la = nextToken();
 	}
 
 	/**
@@ -477,8 +468,7 @@ public class Parser extends AbstractCompiler {
 		} else if (twoArgComm.get(curr.code)) {
 			TwoArgStatement();
 		} else {
-			throw new IllegalArgumentException(
-					"Expected to encounter one or two argument instruction, but got: " + curr.str);
+			throw new ParsingException(curr.line, curr.str, "one or two argument instruction");
 		}
 	}
 
@@ -635,10 +625,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 16bit register, "
-								+ "expeted to get 16bit register, dw variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"16bit register, dw variable or constant value for second argument");
 			}
 
 		} else if (highByte.get(arg1.code)) {// reg
@@ -653,11 +641,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 8bit (high part of) register, "
-								+ "expeted to get 8bit (high or low part of) register, "
-								+ "db variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"8bit (high or low part of) register, db variable or constant value");
 			}
 
 		} else if (lowByte.get(arg1.code)) {// reg
@@ -672,11 +657,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 8bit (low part of) register, "
-								+ "expeted to get 8bit (high or low part of) register, "
-								+ "db variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"8bit (high or low part of) register, db variable or constant value");
 			}
 
 		} else if (isVariable(arg1.str)) { // mem (db or dw)
@@ -691,10 +673,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, size);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is db or dw variable, "
-								+ "expeted to get register (16bit or 8bit) or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"register (16bit or 8bit) or constant value");
 			}
 
 		} else if (arg1.code == number) { // only if negation is the operation
@@ -712,22 +692,18 @@ public class Parser extends AbstractCompiler {
 					val2 = arg2.str;
 					size = variableSize.get(getVariableName(arg2.str));
 				} else {
-					throw new IllegalArgumentException(
-							"First argument of instruction is number, "
-									+ "expeted to get register (16bit or 8bit), db or dw variable for second argument, but got: "
-									+ arg2.str);
+					throw new ParsingException(arg1.line, arg2.str,
+							"register (16bit or 8bit), db or dw variable");
 				}
 
 			} else {
-				throw new IllegalArgumentException(
-						"Expected to get negation for operation, but got: " + operation.toString());
+				throw new ParsingException(arg1.line, operation.toString(), Operation.NEGATION
+						.toString());
 			}
 
 		} else {
-			throw new IllegalArgumentException(
-					"Expeted to get 8bit (high or low part of) register, 16bit register, "
-							+ "db or dw variable or constant value for first argument, but got: "
-							+ arg1.str);
+			throw new ParsingException(arg1.line, arg1.str,
+					"8bit (high or low part of) register, 16bit register, db or dw variable or constant value");
 		}
 
 		buffer.insert("temp := ", val1, ";");
@@ -797,9 +773,8 @@ public class Parser extends AbstractCompiler {
 			buffer.insert("ax := (ax MOD ", arg.str, ") * 256 + temp");
 			buffer.insert("FI;");
 		} else {
-			throw new IllegalArgumentException(
-					"Expected to get register (16bit or 8bit) or variable (db or dw), but got: "
-							+ arg.str);
+			throw new ParsingException(arg.line, arg.str,
+					"register (16bit or 8bit) or variable (db or dw)");
 		}
 	}
 
@@ -829,9 +804,8 @@ public class Parser extends AbstractCompiler {
 			arithmeticInstruction(new Token(al, 0, str[al], arg.line), arg,
 					Operation.MULTIPLICATION);
 		} else {
-			throw new IllegalArgumentException(
-					"Expected to get register (16bit or 8bit) or variable (db or dw), but got: "
-							+ arg.str);
+			throw new ParsingException(arg.line, arg.str,
+					"register (16bit or 8bit) or variable (db or dw)");
 		}
 	}
 
@@ -881,7 +855,7 @@ public class Parser extends AbstractCompiler {
 		} else if (isVariable(arg.str)) {
 			buffer.insert(arg.str, " := temp;");
 		} else {
-			// error
+			throw new IllegalArgumentException("Argument type is invalid: " + arg.str);
 		}
 	}
 
@@ -1063,16 +1037,8 @@ public class Parser extends AbstractCompiler {
 			return;
 		} else if (arg2.code == atdata) { // simulate value returned by @data with random int
 
-			if (atData == null) {
-				Size size;
-				if (doubleByte.get(arg1.code)) {
-					size = Size.DOUBLE_BYTE;
-				} else if (singleByte.get(arg1.code)) {
-					size = Size.BYTE;
-				} else {
-					size = variableSize.get(getVariableName(arg1.str));
-				}
-				Integer val = new Random().nextInt(1 << size.getSize());
+			if (atData == null) { // arg1 size must be double byte
+				Integer val = new Random().nextInt(1 << Size.DOUBLE_BYTE.getSize());
 				atData = new Token(number, val, val.toString(), arg2.line);
 			}
 
@@ -1101,10 +1067,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.DOUBLE_BYTE);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 16bit register, "
-								+ "expeted to get 16bit register, dw variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"16bit register, dw variable or constant value");
 			}
 
 			return arg1.str + " := " + val2;
@@ -1121,11 +1085,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val) + " * 256";
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 8bit (high part of) register, "
-								+ "expeted to get 8bit (high or low part of) register, "
-								+ "db variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"8bit (high or low part of) register, db variable or constant value");
 			}
 
 			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code) + " MOD 256) + "
@@ -1143,11 +1104,8 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, Size.BYTE);
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is 8bit (low part of) register, "
-								+ "expeted to get 8bit (high or low part of) register, "
-								+ "db variable or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"8bit (high or low part of) register, db variable or constant value");
 			}
 
 			return getXRegister(arg1.code) + " := (" + getXRegister(arg1.code)
@@ -1165,18 +1123,15 @@ public class Parser extends AbstractCompiler {
 				int val = toUnsigned(arg2.val, variableSize.get(getVariableName(arg1.str)));
 				val2 = Integer.toString(val);
 			} else {
-				throw new IllegalArgumentException(
-						"First argument of instruction is db or dw variable, "
-								+ "expeted to get register (16bit or 8bit) or constant value for second argument, but got: "
-								+ arg2.str);
+				throw new ParsingException(arg1.line, arg2.str,
+						"register (16bit or 8bit) or constant value");
 			}
 
 			return arg1.str + " := " + val2;
 
 		} else {
-			throw new IllegalArgumentException(
-					"Expeted to get 8bit (high or low part of) register, 16bit register, "
-							+ "db or dw variable for first argument, but got: " + arg1.str);
+			throw new ParsingException(arg1.line, arg1.str,
+					"8bit (high or low part of) register, 16bit register, db or dw variable");
 		}
 	}
 
@@ -1283,7 +1238,8 @@ public class Parser extends AbstractCompiler {
 				buffer.insert("CALL Z");
 				buffer.insert("FI;");
 			} else {
-				// error
+				throw new ParsingException(arg.line,
+						"Argument must be number and value must be 21h.");
 			}
 			break;
 		case loop:
@@ -1462,7 +1418,7 @@ public class Parser extends AbstractCompiler {
 			check(offset);
 			check(ident);
 		} else {
-			throw new IllegalArgumentException();
+			throw new ParsingException(curr.line, curr.code, ident, number, atdata, offset);
 		}
 		return ret;
 	}
