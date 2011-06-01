@@ -29,8 +29,8 @@ public class CodeBuffer {
 	 * Initialize buffer. Create starting template and insert flags and registers to declarations.
 	 */
 	private void init() {
-		String template = "VAR < " + DECLARATION + " >: " + NEW_LINE + BEGIN + NEW_LINE + BODY + PROCEDURE
-				+ "ENDVAR";
+		String template = "VAR < " + DECLARATION + " >: " + NEW_LINE + BEGIN + NEW_LINE + BODY
+				+ PROCEDURE + "ENDVAR";
 
 		String declaration = "flag_o := 0, flag_s := 0, flag_z := 0, flag_c := 0, ax := 0, "
 				+ NEW_LINE + " bx:= 0, cx:= 0, dx:= 0, temp := 0, si:= 0, di:= 0, bp:= 0, sp:= 0, "
@@ -106,6 +106,7 @@ public class CodeBuffer {
 	}
 
 	public void addBegin() {
+		checkClosed();
 		buffer = buffer.replace(BEGIN, "BEGIN" + BEGIN);
 	}
 
